@@ -1,0 +1,112 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const url = new URL(Astro.request.url);
+const redirect = url.searchParams.get('redirect') || '/dashboard';
+---
+
+<Layout title="Zaloguj się - Self-Storage">
+  <div class="min-h-screen bg-background flex items-center justify-center pt-24">
+    <div class="w-full max-w-md mx-6">
+      <div class="bg-primary rounded-3xl p-8 border border-secondary">
+        <div class="text-center mb-8">
+          <div class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span class="text-2xl text-text-dark">🔐</span>
+          </div>
+          <h1 class="text-3xl font-bold text-accent font-canela mb-2">
+            Zaloguj się
+          </h1>
+          <p class="text-gray-300">
+            Wprowadź swoje dane aby kontynuować
+          </p>
+        </div>
+        
+        <form id="loginForm" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="twój@email.pl"
+            />
+          </div>
+          
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+              Hasło
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+              placeholder="••••••••"
+            />
+          </div>
+          
+          <button
+            type="submit"
+            class="w-full bg-accent text-text-dark font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors"
+          >
+            Zaloguj się
+          </button>
+          
+          <div class="text-center">
+            <p class="text-gray-400 text-sm">
+              Nie masz konta? 
+              <a href="/auth/register" class="text-accent hover:underline">
+                Zarejestruj się
+              </a>
+            </p>
+          </div>
+        </form>
+        
+        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ redirect }}>
+    import { supabase } from '../../lib/supabase';
+    
+    const form = document.getElementById('loginForm');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(form);
+      const email = formData.get('email');
+      const password = formData.get('password');
+      
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data.session) {
+          // Zapisz token w ciasteczku
+          document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${data.session.expires_in}`;
+          
+          // Przekieruj
+          window.location.href = redirect;
+        }
+      } catch (error) {
+        errorMessage.textContent = error.message || 'Błąd logowania';
+        errorMessage.classList.remove('hidden');
+      }
+    });
+  </script>
+</Layout>
