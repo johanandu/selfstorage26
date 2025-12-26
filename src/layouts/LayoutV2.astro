@@ -1,0 +1,162 @@
+---
+import { ViewTransitions } from 'astro:transitions';
+export interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Self-Storage Premium - bezobsługowy wynajem magazynów z BLIK, automatycznymi fakturami VAT i premium UX.' } = Astro.props;
+const isAuthenticated = Astro.cookies.has('sb-access-token');
+---
+
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Inter+Display:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- View Transitions -->
+    <ViewTransitions />
+    
+    <style>
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #0a0a0a;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #2a2a2a;
+        border-radius: 4px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #f5f5f5;
+      }
+
+      /* View Transitions */
+      ::view-transition-old(root),
+      ::view-transition-new(root) {
+        animation-duration: 0.5s;
+        animation-timing-function: ease-in-out;
+      }
+
+      ::view-transition-old(root) {
+        animation-name: slide-out;
+      }
+
+      ::view-transition-new(root) {
+        animation-name: slide-in;
+      }
+
+      @keyframes slide-out {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(-100px);
+          opacity: 0;
+        }
+      }
+
+      @keyframes slide-in {
+        from {
+          transform: translateX(100px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 bg-glass-bg/80 backdrop-blur-xl border border-glass-border z-50 transition-all duration-300">
+      <div class="container mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center transition-transform hover:scale-110" style="transition: transform 0.2s ease">
+              <span class="text-text-dark font-bold text-lg">S</span>
+            </div>
+            <span class="text-xl font-bold text-accent font-display">Self-Storage</span>
+          </div>
+          
+          <div class="hidden md:flex items-center space-x-8">
+            <a href="/" class="text-gray-300 hover:text-accent transition-colors font-medium">Strona główna</a>
+            <a href="/dashboard" class="text-gray-300 hover:text-accent transition-colors font-medium">Panel</a>
+            <a href="/about" class="text-gray-300 hover:text-accent transition-colors font-medium">O nas</a>
+          </div>
+          
+          <div class="flex items-center space-x-4">
+            {isAuthenticated ? (
+              <a 
+                href="/dashboard" 
+                class="bg-accent text-text-dark px-6 py-2 rounded-full font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Panel
+              </a>
+            ) : (
+              <div class="flex items-center space-x-4">
+                <a 
+                  href="/auth/login" 
+                  class="text-gray-300 hover:text-accent transition-colors font-medium"
+                >
+                  Zaloguj
+                </a>
+                <a 
+                  href="/auth/register" 
+                  class="bg-accent text-text-dark px-6 py-2 rounded-full font-semibold hover:bg-gray-300 transition-colors"
+                >
+                  Zarejestruj
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-bg-primary border-t border-glass-border py-12">
+      <div class="container mx-auto px-6 text-center">
+        <div class="flex items-center justify-center space-x-3 mb-6">
+          <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+            <span class="text-text-dark font-bold text-lg">S</span>
+          </div>
+          <span class="text-xl font-bold text-accent font-display">Self-Storage</span>
+        </div>
+        
+        <p class="text-gray-400 mb-4">
+          Self-Storage V2.0 - Award Winning Design + Cutting Edge Technology
+        </p>
+        
+        <p class="text-sm text-gray-500">
+          © 2024 Self-Storage. All rights reserved.
+        </p>
+      </div>
+    </footer>
+
+    <style>
+      @import '../styles/global.css';
+    </style>
+  </body>
+</html>

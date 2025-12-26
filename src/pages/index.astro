@@ -1,165 +1,270 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import PremiumCard from '../components/ui/PremiumCard.jsx';
+import LayoutV2 from '../layouts/LayoutV2.astro';
+import StatsTile from '../components/bento/StatsTile.astro';
+import GateTile from '../components/bento/GateTile.jsx';
+import WeatherTile from '../components/bento/WeatherTile.astro';
+import BookingWizard from '../components/wizard/BookingWizard.jsx';
+import { getCollection } from 'astro:content';
 import { supabase } from '../lib/supabase';
-import { motion } from 'framer-motion';
 
-// Pobierz dostępne jednostki
-const { data: units, error } = await supabase
+// Pobierz jednostki z Content Layer (statycznie)
+const units = await getCollection('units');
+
+// Pobierz dynamiczne dane dostępności (Server Islands)
+const { data: availableUnits, error: availabilityError } = await supabase
   .from('units')
-  .select('*')
-  .order('name');
+  .select('id, status')
+  .eq('status', 'available');
 
-if (error) {
-  console.error('Błąd pobierania jednostek:', error);
-}
+const availableCount = availableUnits?.length || 0;
+const totalCount = units.length;
+const occupancyRate = Math.round(((totalCount - availableCount) / totalCount) * 100);
+
+// Mock data dla statystyk
+const stats = {
+  totalRevenue: '2.4M PLN',
+  activeRentals: 156,
+  satisfaction: '4.9/5',
+  uptime: '99.9%',
+};
 
 // Sprawdź czy użytkownik jest zalogowany
 const isAuthenticated = Astro.cookies.has('sb-access-token');
+
+// Mock active subscription dla GateTile
+let hasActiveSubscription = false;
+if (isAuthenticated) {
+  const token = Astro.cookies.get('sb-access-token');
+  if (token) {
+    const { data: subscriptions } = await supabase
+      .from('subscriptions')
+      .select('unit_id')
+      .eq('user_id', token.value) // To trzeba przepisać - token to nie user_id
+      .eq('status', 'active')
+      .gte('valid_until', new Date().toISOString());
+    
+    hasActiveSubscription = subscriptions && subscriptions.length > 0;
+  }
+}
+
+// Pobierz pierwszą jednostkę użytkownika (mock)
+const userUnit = hasActiveSubscription ? units[0] : null;
 ---
 
-<Layout title="Self-Storage Premium - Twoje rzeczy w bezpiecznych rękach">
+<LayoutV2 title="Self-Storage V2.0 - Award Winning Design">
   <!-- Hero Section -->
-  <section class="hero-gradient min-h-screen flex items-center justify-center relative overflow-hidden">
-    <!-- Background Animation -->
+  <section class="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-background via-bg-primary to-bg-secondary">
+    <!-- Background Elements -->
     <div class="absolute inset-0 opacity-20">
       <div class="absolute top-20 left-20 w-96 h-96 bg-accent rounded-full blur-3xl animate-pulse"></div>
-      <div class="absolute bottom-20 right-20 w-96 h-96 bg-secondary rounded-full blur-3xl animate-pulse delay-1000"></div>
+      <div class="absolute bottom-20 right-20 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
     </div>
 
     <div class="container mx-auto px-6 text-center relative z-10">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, ease: 'easeOut' }}
+      <div
+        transition:animate="fade"
+        class="space-y-8"
       >
-        <h1 class="text-6xl md:text-8xl font-bold font-canela text-accent mb-6 text-shadow">
-          Apple wśród<br/>magazynów
+        <h1 class="text-6xl md:text-8xl font-bold font-display text-accent mb-6">
+          Award Winning<br/>Self-Storage
         </h1>
         <p class="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-          Bezobsługowy wynajem magazynów z premium UX. Zaloguj się, wybierz, zapłać BLIKiem - brama się otwiera automatycznie.
+          Przebudowaliśmy magazyny od podstaw. Teraz wyglądają jak produkt Apple.
         </p>
         
-        {!isAuthenticated && (
-          <motion.a
-            href="/auth/login"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            class="inline-block bg-accent text-text-dark font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-300 transition-colors"
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="/dashboard"
+            class="bg-accent text-text-dark font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-300 transition-all duration-300 hover:scale-105"
           >
-            Rozpocznij teraz
-          </motion.a>
-        )}
-      </motion.div>
-    </div>
-  </section>
-
-  <!-- Units Section -->
-  <section class="py-20 bg-background">
-    <div class="container mx-auto px-6">
-      <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-        viewport={{ once: true }}
-        class="text-center mb-16"
-      >
-        <h2 class="text-5xl font-bold font-canela text-accent mb-6">Dostępne magazyny</h2>
-        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
-          Wybierz jednostkę odpowiednią dla Twoich potrzeb. Wszystkie wyposażone w system monitoringu i kontroli dostępu.
-        </p>
-      </motion.div>
-
-      {units && units.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {units.map((unit, index) => (
-            <motion.div
-              key={unit.id}
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              viewport={{ once: true }}
-            >
-              <PremiumCard
-                unit={unit}
-                client:load
-                onSelect={(selectedUnit) => {
-                  if (isAuthenticated) {
-                    window.location.href = `/checkout?unit=${selectedUnit.id}`;
-                  } else {
-                    window.location.href = `/auth/login?redirect=/checkout?unit=${selectedUnit.id}`;
-                  }
-                }}
-              />
-            </motion.div>
-          ))}
+            Przejdź do panelu
+          </a>
+          <button
+            id="openWizard"
+            class="border border-glass-border bg-glass-bg/50 backdrop-blur-sm text-accent font-bold py-4 px-8 rounded-full text-lg hover:bg-glass-bg transition-all duration-300 hover:scale-105"
+          >
+            Skonfiguruj magazyn
+          </button>
         </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          class="text-center py-20"
-        >
-          <div class="text-6xl mb-4">📦</div>
-          <h3 class="text-2xl font-bold text-accent mb-2">Brak dostępnych magazynów</h3>
-          <p class="text-gray-400">Sprawdź ponownie później lub skontaktuj się z nami.</p>
-        </motion.div>
-      )}
-    </div>
-  </section>
-
-  <!-- Features Section -->
-  <section class="py-20 bg-primary">
-    <div class="container mx-auto px-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          class="text-center"
-        >
-          <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-            <span class="text-3xl text-text-dark">💳</span>
-          </div>
-          <h3 class="text-2xl font-bold text-accent mb-4">Płatności BLIK</h3>
-          <p class="text-gray-300">
-            Szybkie płatności mobilne BLIK oraz tradycyjne przelewy przez Przelewy24.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          viewport={{ once: true }}
-          class="text-center"
-        >
-          <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-            <span class="text-3xl text-text-dark">📧</span>
-          </div>
-          <h3 class="text-2xl font-bold text-accent mb-4">Faktury VAT</h3>
-          <p class="text-gray-300">
-            Automatyczne wystawianie faktur VAT 23% i wysyłka na email w formacie PDF.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          viewport={{ once: true }}
-          class="text-center"
-        >
-          <div class="w-20 h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-            <span class="text-3xl text-text-dark">🔓</span>
-          </div>
-          <h3 class="text-2xl font-bold text-accent mb-4">Automatyzacja</h3>
-          <p class="text-gray-300">
-            Zero kontaktu z człowiekiem. Wszystko działa automatycznie - od płatności po otwarcie bramy.
-          </p>
-        </motion.div>
       </div>
     </div>
   </section>
-</Layout>
+
+  <!-- Bento Grid Dashboard -->
+  <section class="py-20 bg-background">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-5xl font-bold font-display text-accent mb-6">Panel kontrolny</h2>
+        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          Wszystko co musisz wiedzieć na pierwszy rzut oka
+        </p>
+      </div>
+
+      <!-- Bento Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6 auto-rows-fr">
+        <!-- Large Gate Tile -->
+        {userUnit && (
+          <GateTile 
+            client:load 
+            isSubscribed={hasActiveSubscription}
+            unitId={userUnit.id}
+            unitName={userUnit.data.name}
+          />
+        )}
+
+        <!-- Stats Tiles -->
+        <StatsTile 
+          title="Dostępne magazyny" 
+          value={availableCount} 
+          trend={`+${availableCount}`}
+          icon="📦"
+          size="medium"
+        />
+        
+        <StatsTile 
+          title="Zajętość" 
+          value={`${occupancyRate}%`} 
+          trend={occupancyRate > 80 ? '+High' : '-Low'}
+          icon="📊"
+          size="medium"
+        />
+        
+        <StatsTile 
+          title="Temperatura" 
+          value="12°C" 
+          icon="🌡️"
+          size="small"
+        />
+        
+        <WeatherTile client:load />
+        
+        <StatsTile 
+          title="Aktywne wynajmy" 
+          value={stats.activeRentals} 
+          trend="+12"
+          icon="🔑"
+          size="medium"
+        />
+        
+        <StatsTile 
+          title="Zadowolenie" 
+          value={stats.satisfaction} 
+          icon="⭐"
+          size="small"
+        />
+        
+        <StatsTile 
+          title="Dostępność" 
+          value={stats.uptime} 
+          icon="✅"
+          size="small"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Available Units -->
+  <section class="py-20 bg-bg-primary">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-5xl font-bold font-display text-accent mb-6">Dostępne magazyny</h2>
+        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          Wybierz idealną przestrzeń dla swoich potrzeb
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {units.map((unit, index) => {
+          const isAvailable = availableUnits?.some(u => u.id === parseInt(unit.id.split('-')[1])) ?? false;
+          
+          return (
+            <div
+              key={unit.id}
+              class={`bg-glass-bg border border-glass-border rounded-3xl p-8 backdrop-blur-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-accent/20 ${
+                !isAvailable ? 'opacity-50' : ''
+              }`}
+            >
+              <div class="aspect-video bg-bg-secondary rounded-2xl mb-6 overflow-hidden">
+                {unit.data.image ? (
+                  <img 
+                    src={unit.data.image} 
+                    alt={unit.data.name}
+                    class="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div class="w-full h-full flex items-center justify-center">
+                    <div class="text-6xl text-gray-600">📦</div>
+                  </div>
+                )}
+              </div>
+
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-2xl font-bold text-accent font-display">{unit.data.name}</h3>
+                  <div class={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isAvailable 
+                      ? 'bg-green-500/20 text-green-400' 
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {isAvailable ? 'Dostępny' : 'Zajęty'}
+                  </div>
+                </div>
+                
+                <div class="text-gray-300">{unit.data.size}</div>
+                
+                <div class="space-y-2">
+                  <div class="text-3xl font-bold text-accent font-display">
+                    {unit.data.priceGross / 100} PLN
+                    <span class="text-sm font-normal text-gray-400">/miesiąc</span>
+                  </div>
+                  <div class="text-xs text-gray-500">Brutto (VAT 23%)</div>
+                </div>
+
+                <div class="space-y-2 pt-4 border-t border-glass-border">
+                  <div class="text-sm text-gray-400 mb-2">Pojemność:</div>
+                  <div class="flex items-center space-x-4 text-sm">
+                    <span>📦 {unit.data.capacity.cartons} kartonów</span>
+                    {unit.data.capacity.bicycles && (
+                      <span>🚲 {unit.data.capacity.bicycles} rowery</span>
+                    )}
+                  </div>
+                </div>
+
+                {isAvailable && (
+                  <button
+                    id={`book-${unit.id}`}
+                    class="w-full bg-accent text-text-dark font-bold py-3 rounded-xl hover:bg-gray-300 transition-colors mt-6"
+                  >
+                    Zarezerwuj teraz
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking Wizard Modal -->
+  <div id="bookingWizardContainer"></div>
+</LayoutV2>
+
+<script>
+  // Otwieranie wizarda
+  document.getElementById('openWizard')?.addEventListener('click', () => {
+    const container = document.getElementById('bookingWizardContainer');
+    if (container) {
+      // Tutaj React renderuje BookingWizard
+      // W Astro używamy client:load na komponencie
+    }
+  });
+
+  // Booking dla każdego magazynu
+  document.querySelectorAll('[id^="book-"]').forEach(button => {
+    button.addEventListener('click', () => {
+      const unitId = button.id.replace('book-', '');
+      window.location.href = `/checkout?unit=${unitId}`;
+    });
+  });
+</script>

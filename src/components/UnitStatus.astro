@@ -1,0 +1,33 @@
+---
+// Server Island - sprawdza dostępność asynchronicznie
+import { supabase } from '../lib/supabase';
+
+export interface Props {
+  unitId: string;
+}
+
+const { unitId } = Astro.props;
+
+// Pobierz status z bazy (asynchronicznie, nie blokuje renderowania)
+const { data: unit, error } = await supabase
+  .from('units')
+  .select('status')
+  .eq('id', parseInt(unitId))
+  .single();
+
+const isAvailable = unit?.status === 'available';
+---
+
+<div class={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium ${
+  isAvailable 
+    ? 'bg-green-500/20 text-green-400' 
+    : 'bg-red-500/20 text-red-400'
+}`}>
+  <div class={`w-2 h-2 rounded-full ${
+    isAvailable ? 'bg-green-400' : 'bg-red-400'
+  }`} />
+  <span>{isAvailable ? 'Dostępny' : 'Zajęty'}</span>
+</div>
+
+{/* Skeleton podczas ładowania */}
+<div class="skeleton w-20 h-6 rounded-full" style="display: none;"></div>

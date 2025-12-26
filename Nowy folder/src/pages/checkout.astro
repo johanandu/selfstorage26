@@ -1,7 +1,7 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { supabase } from '../../lib/supabase';
-import { createCheckoutSession } from '../../lib/stripe';
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../lib/supabase';
+import { createCheckoutSession } from '../lib/stripe';
 
 // Sprawdź autoryzację
 const token = Astro.cookies.get('sb-access-token');

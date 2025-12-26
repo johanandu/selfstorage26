@@ -1,0 +1,23 @@
+{
+  "id": "box-a3",
+  "name": "Box A3",
+  "size": "12m²",
+  "dimensions": "4m x 3m x 2.5m",
+  "priceGross": 48000,
+  "capacity": {
+    "cartons": 60,
+    "bicycles": 6,
+    "suitcases": 18,
+    "furniture": "Całe mieszkanie 1-pokojowe"
+  },
+  "features": [
+    "Dla całego mieszkania",
+    "Mieści duże meble",
+    "Dostęp 24/7",
+    "Monitoring",
+    "Zabezpieczenie przeciwwilgociowe",
+    "Wózek do transportu"
+  ],
+  "image": "/images/units/box-a3.jpg",
+  "status": "available"
+}

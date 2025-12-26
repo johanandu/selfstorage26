@@ -1,0 +1,35 @@
+---
+export interface Props {
+  title: string;
+  value: string | number;
+  trend?: string;
+  icon: string;
+  size?: 'small' | 'medium' | 'large';
+}
+
+const { title, value, trend, icon, size = 'medium' } = Astro.props;
+
+const sizeClasses = {
+  small: 'col-span-1 row-span-1',
+  medium: 'col-span-2 row-span-1',
+  large: 'col-span-2 row-span-2',
+};
+---
+
+<div class={`${sizeClasses[size]} bg-glass-bg border border-glass-border rounded-3xl p-6 backdrop-blur-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-accent/20`}>
+  <div class="flex items-start justify-between mb-4">
+    <div class="text-3xl">{icon}</div>
+    {trend && (
+      <div class={`text-sm font-medium px-2 py-1 rounded-full ${
+        trend.startsWith('+') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+      }`}>
+        {trend}
+      </div>
+    )}
+  </div>
+  
+  <div class="space-y-2">
+    <h3 class="text-sm font-medium text-gray-400">{title}</h3>
+    <div class="text-3xl font-bold text-accent font-display">{value}</div>
+  </div>
+</div>

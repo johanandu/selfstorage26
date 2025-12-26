@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Inter+Display:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   html {
@@ -16,35 +16,72 @@
 }
 
 @layer components {
-  .premium-card {
-    @apply bg-primary border border-secondary rounded-2xl p-6 transition-all duration-300 ease-out;
+  /* Bento Grid Components */
+  .bento-tile {
+    @apply bg-glass-bg border border-glass-border rounded-3xl backdrop-blur-xl transition-all duration-300 ease-out;
   }
   
-  .premium-card:hover {
-    transform: scale(1.02);
-    box-shadow: 0 20px 40px rgba(234, 234, 234, 0.1);
+  .bento-tile:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 25px 50px rgba(245, 245, 245, 0.15);
   }
 
-  .gate-button {
-    @apply relative bg-accent text-text-dark font-bold py-6 px-12 rounded-full text-xl transition-all duration-300 ease-out;
-  }
-  
-  .gate-button:hover {
-    box-shadow: 0 0 30px rgba(234, 234, 234, 0.5);
-  }
-  
-  .gate-button.loading {
-    @apply bg-secondary text-text-light;
-    animation: pulse-gate 2s ease-in-out infinite;
+  /* Glassmorphism */
+  .glass-panel {
+    @apply bg-glass-bg border border-glass-border backdrop-blur-xl;
   }
 
-  .hero-gradient {
-    background: linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 50%, #1A1A1A 100%);
+  /* Enhanced Gate Button */
+  .gate-button-v2 {
+    @apply relative bg-accent text-text-dark font-bold py-6 px-12 rounded-full text-xl transition-all duration-300 ease-out hover:scale-105;
+  }
+  
+  .gate-button-v2:hover {
+    box-shadow: 0 0 40px rgba(245, 245, 245, 0.6);
+  }
+
+  /* Hero Gradient V2 */
+  .hero-gradient-v2 {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    @apply relative overflow-hidden bg-gray-800 rounded;
+  }
+  
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer 2s infinite;
   }
 }
 
 @layer utilities {
   .text-shadow {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  .glass-shadow {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(245, 245, 245, 0.1);
+  }
+
+  /* Custom scrollbar for glass panels */
+  .glass-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .glass-scroll::-webkit-scrollbar-track {
+    background: rgba(42, 42, 42, 0.1);
+  }
+  
+  .glass-scroll::-webkit-scrollbar-thumb {
+    background: rgba(245, 245, 245, 0.2);
+    border-radius: 3px;
   }
 }

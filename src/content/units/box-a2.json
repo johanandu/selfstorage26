@@ -1,0 +1,22 @@
+{
+  "id": "box-a2",
+  "name": "Box A2",
+  "size": "8m²",
+  "dimensions": "4m x 2m x 2.5m",
+  "priceGross": 32000,
+  "capacity": {
+    "cartons": 40,
+    "bicycles": 4,
+    "suitcases": 12,
+    "furniture": "Sofa + 2 fotele"
+  },
+  "features": [
+    "Dla małego mieszkania",
+    "Mieści meble tapicerowane",
+    "Dostęp 24/7",
+    "Monitoring",
+    "Zabezpieczenie przeciwwilgociowe"
+  ],
+  "image": "/images/units/box-a2.jpg",
+  "status": "available"
+}

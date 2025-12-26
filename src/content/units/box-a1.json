@@ -1,0 +1,20 @@
+{
+  "id": "box-a1",
+  "name": "Box A1",
+  "size": "5m²",
+  "dimensions": "2.5m x 2m x 2.5m",
+  "priceGross": 20000,
+  "capacity": {
+    "cartons": 25,
+    "bicycles": 2,
+    "suitcases": 8
+  },
+  "features": [
+    "Idealny dla studentów",
+    "Mieści rower lub małe meble",
+    "Dostęp 24/7",
+    "Monitoring"
+  ],
+  "image": "/images/units/box-a1.jpg",
+  "status": "available"
+}
