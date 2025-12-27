@@ -1,157 +1,237 @@
 ---
-import LayoutV2 from '../layouts/LayoutV2.astro'; // Upewnij się że masz ten plik, jak nie to Layout.astro
+import LayoutV2 from '../layouts/LayoutV2.astro';
+import StatsTile from '../components/bento/StatsTile.astro';
+import WeatherTile from '../components/bento/WeatherTile.astro';
+import GateTile from '../components/bento/GateTile.jsx';
 import { supabase } from '../lib/supabase';
 
-// 1. Pobieramy unity BEZPOŚREDNIO z bazy (bezpieczniej niż Content Layer na tym etapie)
+// 1. POBIERANIE DANYCH Z BAZY (Zamiast awaryjnego getCollection)
 let units = [];
+let availableCount = 0;
+let occupancyRate = 0;
+let userUnit = null;
+
+// Sprawdź czy użytkownik jest zalogowany (po ciasteczku)
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const isAuthenticated = !!accessToken;
+
 try {
-  const { data, error } = await supabase
+  // A. Pobierz wszystkie unity
+  const { data: unitsData, error } = await supabase
     .from('units')
     .select('*')
-    .eq('status', 'available')
     .order('price_gross', { ascending: true });
-  
-  if (!error && data) {
-    units = data;
+
+  if (unitsData) {
+    units = unitsData;
+    const total = units.length;
+    const available = units.filter(u => u.status === 'available').length;
+    
+    availableCount = available;
+    occupancyRate = total > 0 ? Math.round(((total - available) / total) * 100) : 0;
   }
+
+  // B. Jeśli zalogowany, spróbuj pobrać jego unit do GateTile
+  if (isAuthenticated) {
+    // Pobieramy usera żeby mieć pewność ID
+    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    
+    if (user) {
+      const { data: subData } = await supabase
+        .from('subscriptions')
+        .select('*, units(*)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+        
+      if (subData && subData.units) {
+        userUnit = subData.units;
+      }
+    }
+  }
+
 } catch (e) {
-  console.error('Błąd bazy:', e);
+  console.error("Błąd ładowania danych:", e);
 }
 
-// 2. Statystyki (Hardcoded na start, żeby wyglądało ładnie)
+// Mock statystyk biznesowych (do Bento)
 const stats = {
-  totalRevenue: '2.4M PLN',
-  availableCount: units.length,
+  activeRentals: occupancyRate > 0 ? Math.floor(units.length * (occupancyRate/100)) : 0,
   satisfaction: '4.9/5',
   uptime: '99.9%',
 };
 ---
 
-<!-- Jeśli nie masz LayoutV2, zmień na Layout -->
 <LayoutV2 title="Self-Storage V2.0 - Premium Space">
   
   <!-- HERO SECTION -->
-  <section class="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
-    
-    <!-- Tło Gradientowe -->
-    <div class="absolute inset-0 z-0 opacity-30">
+  <section class="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0a0a0a]">
+    <!-- Tło -->
+    <div class="absolute inset-0 opacity-30 pointer-events-none">
       <div class="absolute top-20 left-20 w-96 h-96 bg-blue-600 rounded-full blur-[120px] animate-pulse"></div>
       <div class="absolute bottom-20 right-20 w-96 h-96 bg-purple-600 rounded-full blur-[120px] animate-pulse delay-1000"></div>
     </div>
 
     <div class="container mx-auto px-6 text-center relative z-10">
-      <h1 class="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight">
-        Magazyn <br/> <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Klasy Premium</span>
-      </h1>
-      
-      <p class="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
-        Przebudowaliśmy doświadczenie self-storage. 
-        Steruj bramą telefonem. Płać BLIKiem. Wjedź w 5 minut.
-      </p>
-      
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a
-          href="#oferta"
-          class="bg-white text-black font-bold py-4 px-10 rounded-full text-lg hover:bg-gray-200 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]"
-        >
-          Zobacz Wolne Boksy
-        </a>
-        <a
-          href="/dashboard"
-          class="border border-white/20 bg-white/5 backdrop-blur-md text-white font-bold py-4 px-10 rounded-full text-lg hover:bg-white/10 transition-all duration-300"
-        >
-          Panel Klienta
-        </a>
+      <div class="space-y-8 animate-fade-in-up">
+        <h1 class="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight">
+          Twój Magazyn <br/> <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Klasy Premium</span>
+        </h1>
+        <p class="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+          Przebudowaliśmy magazyny od podstaw. Pełna automatyzacja, dostęp 24/7.
+          Bez kluczy, bez biura - wszystko w Twoim telefonie.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="#oferta"
+            class="bg-white text-black font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-200 transition-all duration-300 hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+          >
+            Zobacz ofertę
+          </a>
+          <a
+            href="/dashboard"
+            class="border border-white/20 bg-white/5 backdrop-blur-md text-white font-bold py-4 px-8 rounded-full text-lg hover:bg-white/10 transition-all duration-300"
+          >
+            {isAuthenticated ? 'Wróć do Panelu' : 'Zaloguj się'}
+          </a>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- BENTO GRID (Statystyki - wizualne) -->
+  <!-- BENTO GRID -->
   <section class="py-20 bg-[#0f0f0f] border-y border-white/5">
     <div class="container mx-auto px-6">
       <div class="text-center mb-16">
-        <h2 class="text-4xl font-bold text-white mb-4">Inteligentny System</h2>
-        <p class="text-gray-400">Technologia, która pracuje dla Ciebie 24/7</p>
+        <h2 class="text-4xl font-bold text-white mb-4">Centrum Dowodzenia</h2>
+        <p class="text-gray-400">Wszystkie informacje w jednym miejscu</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <!-- Kafel 1 -->
-        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5 md:col-span-2">
-          <div class="text-5xl mb-4">📱</div>
-          <h3 class="text-2xl font-bold text-white">Aplikacja PWA</h3>
-          <p class="text-gray-400 mt-2">Otwieraj bramę i zarządzaj umowami z poziomu telefonu.</p>
-        </div>
-        <!-- Kafel 2 -->
-        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5">
-          <div class="text-4xl mb-4 text-green-400">100%</div>
-          <h3 class="text-lg font-bold text-white">Automatyzacji</h3>
-        </div>
-        <!-- Kafel 3 -->
-        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5">
-          <div class="text-4xl mb-4 text-blue-400">24h</div>
-          <h3 class="text-lg font-bold text-white">Dostęp</h3>
-        </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6 auto-rows-fr">
+        
+        <!-- 1. KAFEL BRAMY (Tylko jeśli user ma wynajęty unit) -->
+        {userUnit ? (
+          <div class="md:col-span-2 lg:col-span-2 row-span-2">
+            <!-- Przekazujemy dane do komponentu React -->
+            <GateTile 
+              client:load 
+              isSubscribed={true}
+              unitId={userUnit.id}
+              unitName={userUnit.name}
+            />
+          </div>
+        ) : (
+          /* Placeholder jeśli nie ma unitu */
+          <div class="md:col-span-2 lg:col-span-2 row-span-2 p-8 rounded-3xl bg-[#1a1a1a] border border-white/5 flex flex-col justify-center items-center text-center">
+             <div class="text-5xl mb-4">🚀</div>
+             <h3 class="text-2xl font-bold text-white">Rozpocznij tutaj</h3>
+             <p class="text-gray-400 mt-2 mb-6">Wynajmij swój pierwszy magazyn i zyskaj kontrolę nad bramą.</p>
+             <a href="#oferta" class="px-6 py-2 bg-blue-600 rounded-full text-white font-bold hover:bg-blue-500">Wybierz Boks</a>
+          </div>
+        )}
+
+        <!-- 2. STATYSTYKI (Używamy Twoich komponentów .astro) -->
+        <StatsTile 
+          title="Dostępne magazyny" 
+          value={availableCount} 
+          trend={availableCount > 0 ? 'Dostępne' : 'Brak'}
+          icon="📦"
+          size="medium"
+        />
+        
+        <StatsTile 
+          title="Zajętość Obiektu" 
+          value={`${occupancyRate}%`} 
+          trend={occupancyRate > 80 ? 'Wysoka' : 'Normalna'}
+          icon="📊"
+          size="medium"
+        />
+        
+        <StatsTile 
+          title="Temperatura" 
+          value="18°C" 
+          icon="🌡️"
+          size="small"
+        />
+        
+        <!-- WeatherTile wymaga client:load jeśli ma w środku JS -->
+        <WeatherTile /> 
+        
+        <StatsTile 
+          title="Zadowolenie" 
+          value={stats.satisfaction} 
+          icon="⭐"
+          size="small"
+        />
+        
+        <StatsTile 
+          title="Monitoring" 
+          value="24/7" 
+          icon="🎥"
+          size="small"
+        />
       </div>
     </div>
   </section>
 
-  <!-- SEKCJA OFERTA (Naprawiona) -->
+  <!-- OFERTA (DANE Z BAZY) -->
   <section id="oferta" class="py-24 bg-[#0a0a0a]">
     <div class="container mx-auto px-6">
       <div class="text-center mb-16">
         <h2 class="text-5xl font-bold text-white mb-6">Dostępne Magazyny</h2>
         <p class="text-xl text-gray-400 max-w-2xl mx-auto">
-          Wybierz rozmiar idealny dla Ciebie
+          Wybierz rozmiar idealny dla Ciebie. Bez ukrytych kosztów.
         </p>
       </div>
 
-      {units.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {units.map((unit) => (
-            <div class="group relative bg-[#151515] border border-white/10 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-2 hover:border-white/20 hover:shadow-2xl">
-              
-              <!-- Zdjęcie -->
-              <div class="aspect-video bg-gray-800 rounded-2xl mb-6 overflow-hidden relative">
-                 <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" style={`background-image: url('${unit.image_url || "https://images.unsplash.com/photo-1590247813693-5541d1c609fd?w=500&h=300&fit=crop"}')`}></div>
-              </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {units.map((unit) => (
+          <div class="group relative bg-[#151515] border border-white/10 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-2 hover:border-white/20 hover:shadow-2xl hover:shadow-blue-500/10">
+            
+            <!-- Obrazek -->
+            <div class="aspect-video bg-gray-800 rounded-2xl mb-6 overflow-hidden relative">
+               <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" 
+                    style={`background-image: url('${unit.image_url || "https://images.unsplash.com/photo-1590247813693-5541d1c609fd?w=500&h=300&fit=crop"}')`}>
+               </div>
+            </div>
 
-              <div class="flex justify-between items-start mb-4">
-                <div>
-                  <h3 class="text-2xl font-bold text-white">{unit.name}</h3>
-                  <p class="text-gray-400">{unit.size}</p>
-                </div>
-                <span class="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm font-bold">
-                  Wolny
-                </span>
+            <!-- Nagłówek -->
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-2xl font-bold text-white font-display">{unit.name}</h3>
+                <p class="text-gray-400">{unit.size}</p>
               </div>
+              <span class={`px-3 py-1 rounded-full text-sm font-bold ${unit.status === 'available' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                {unit.status === 'available' ? 'Wolny' : 'Zajęty'}
+              </span>
+            </div>
 
-              <div class="space-y-3 border-t border-white/5 pt-4 mb-6">
-                <div class="flex justify-between text-sm text-gray-300">
-                  <span>Cena netto</span>
-                  <span>{((unit.price_gross / 1.23) / 100).toFixed(2)} zł</span>
-                </div>
-                <div class="flex justify-between text-xl font-bold text-white">
-                  <span>Cena brutto</span>
-                  <span>{(unit.price_gross / 100).toFixed(2)} zł</span>
-                </div>
+            <!-- Cena -->
+            <div class="space-y-2 mb-6 border-t border-white/5 pt-4">
+              <div class="flex justify-between items-end">
+                <span class="text-3xl font-bold text-white">{(unit.price_gross / 100).toFixed(0)} zł</span>
+                <span class="text-sm text-gray-500 mb-1">/miesiąc brutto</span>
               </div>
+            </div>
 
+            <!-- Przycisk -->
+            {unit.status === 'available' ? (
               <a 
                 href={`/checkout?unitId=${unit.id}`}
                 class="block w-full text-center bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition-colors"
               >
                 Rezerwuj Teraz
               </a>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Empty State */
-        <div class="text-center py-20 border border-white/10 rounded-3xl bg-[#111]">
-          <p class="text-2xl text-white mb-2">Wszystkie boksy są zajęte 😔</p>
-          <p class="text-gray-400">Zapisz się na listę oczekujących.</p>
-        </div>
-      )}
+            ) : (
+              <button disabled class="block w-full text-center bg-white/5 text-gray-500 font-bold py-4 rounded-xl cursor-not-allowed border border-white/5">
+                Niedostępny
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   </section>
 
