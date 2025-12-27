@@ -1,288 +1,158 @@
 ---
-import LayoutV2 from '../layouts/LayoutV2.astro';
-import StatsTile from '../components/bento/StatsTile.astro';
-import GateTile from '../components/bento/GateTile.jsx';
-import WeatherTile from '../components/bento/WeatherTile.astro';
-import BookingWizard from '../components/wizard/BookingWizard.jsx';
-import { getCollection } from 'astro:content';
+import LayoutV2 from '../layouts/LayoutV2.astro'; // Upewnij się że masz ten plik, jak nie to Layout.astro
 import { supabase } from '../lib/supabase';
 
-// Pobierz jednostki z Content Layer (statycznie)
-const units = await getCollection('units');
+// 1. Pobieramy unity BEZPOŚREDNIO z bazy (bezpieczniej niż Content Layer na tym etapie)
+let units = [];
+try {
+  const { data, error } = await supabase
+    .from('units')
+    .select('*')
+    .eq('status', 'available')
+    .order('price_gross', { ascending: true });
+  
+  if (!error && data) {
+    units = data;
+  }
+} catch (e) {
+  console.error('Błąd bazy:', e);
+}
 
-// Pobierz dynamiczne dane dostępności (Server Islands)
-const { data: availableUnits, error: availabilityError } = await supabase
-  .from('units')
-  .select('id, status')
-  .eq('status', 'available');
-
-const availableCount = availableUnits?.length || 0;
-const totalCount = units.length;
-const occupancyRate = Math.round(((totalCount - availableCount) / totalCount) * 100);
-
-// Mock data dla statystyk
+// 2. Statystyki (Hardcoded na start, żeby wyglądało ładnie)
 const stats = {
   totalRevenue: '2.4M PLN',
-  activeRentals: 156,
+  availableCount: units.length,
   satisfaction: '4.9/5',
   uptime: '99.9%',
 };
-
-// Sprawdź czy użytkownik jest zalogowany
-const isAuthenticated = Astro.cookies.has('sb-access-token');
-
-// Mock active subscription dla GateTile
-let hasActiveSubscription = false;
-if (isAuthenticated) {
-  const token = Astro.cookies.get('sb-access-token');
-  if (token) {
-    const { data: subscriptions } = await supabase
-      .from('subscriptions')
-      .select('unit_id')
-      .eq('user_id', token.value) // To trzeba przepisać - token to nie user_id
-      .eq('status', 'active')
-      .gte('valid_until', new Date().toISOString());
-    
-    hasActiveSubscription = subscriptions && subscriptions.length > 0;
-  }
-}
-
-// Pobierz pierwszą jednostkę użytkownika (mock)
-const userUnit = hasActiveSubscription ? units[0] : null;
 ---
 
-<LayoutV2 title="Self-Storage V2.0 - Award Winning Design">
-  <!-- Hero Section -->
-  <section class="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-background via-bg-primary to-bg-secondary">
-    <!-- Background Elements -->
-    <div class="absolute inset-0 opacity-20">
-      <div class="absolute top-20 left-20 w-96 h-96 bg-accent rounded-full blur-3xl animate-pulse"></div>
-      <div class="absolute bottom-20 right-20 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
+<!-- Jeśli nie masz LayoutV2, zmień na Layout -->
+<LayoutV2 title="Self-Storage V2.0 - Premium Space">
+  
+  <!-- HERO SECTION -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
+    
+    <!-- Tło Gradientowe -->
+    <div class="absolute inset-0 z-0 opacity-30">
+      <div class="absolute top-20 left-20 w-96 h-96 bg-blue-600 rounded-full blur-[120px] animate-pulse"></div>
+      <div class="absolute bottom-20 right-20 w-96 h-96 bg-purple-600 rounded-full blur-[120px] animate-pulse delay-1000"></div>
     </div>
 
     <div class="container mx-auto px-6 text-center relative z-10">
-      <div
-        transition:animate="fade"
-        class="space-y-8"
-      >
-        <h1 class="text-6xl md:text-8xl font-bold font-display text-accent mb-6">
-          Award Winning<br/>Self-Storage
-        </h1>
-        <p class="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-          Przebudowaliśmy magazyny od podstaw. Teraz wyglądają jak produkt Apple.
-        </p>
-        
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <a
-            href="/dashboard"
-            class="bg-accent text-text-dark font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-300 transition-all duration-300 hover:scale-105"
-          >
-            Przejdź do panelu
-          </a>
-          <button
-            id="openWizard"
-            class="border border-glass-border bg-glass-bg/50 backdrop-blur-sm text-accent font-bold py-4 px-8 rounded-full text-lg hover:bg-glass-bg transition-all duration-300 hover:scale-105"
-          >
-            Skonfiguruj magazyn
-          </button>
+      <h1 class="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight">
+        Magazyn <br/> <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Klasy Premium</span>
+      </h1>
+      
+      <p class="text-xl md:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto leading-relaxed">
+        Przebudowaliśmy doświadczenie self-storage. 
+        Steruj bramą telefonem. Płać BLIKiem. Wjedź w 5 minut.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a
+          href="#oferta"
+          class="bg-white text-black font-bold py-4 px-10 rounded-full text-lg hover:bg-gray-200 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+        >
+          Zobacz Wolne Boksy
+        </a>
+        <a
+          href="/dashboard"
+          class="border border-white/20 bg-white/5 backdrop-blur-md text-white font-bold py-4 px-10 rounded-full text-lg hover:bg-white/10 transition-all duration-300"
+        >
+          Panel Klienta
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENTO GRID (Statystyki - wizualne) -->
+  <section class="py-20 bg-[#0f0f0f] border-y border-white/5">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-bold text-white mb-4">Inteligentny System</h2>
+        <p class="text-gray-400">Technologia, która pracuje dla Ciebie 24/7</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Kafel 1 -->
+        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5 md:col-span-2">
+          <div class="text-5xl mb-4">📱</div>
+          <h3 class="text-2xl font-bold text-white">Aplikacja PWA</h3>
+          <p class="text-gray-400 mt-2">Otwieraj bramę i zarządzaj umowami z poziomu telefonu.</p>
+        </div>
+        <!-- Kafel 2 -->
+        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5">
+          <div class="text-4xl mb-4 text-green-400">100%</div>
+          <h3 class="text-lg font-bold text-white">Automatyzacji</h3>
+        </div>
+        <!-- Kafel 3 -->
+        <div class="p-8 rounded-3xl bg-[#1a1a1a] border border-white/5">
+          <div class="text-4xl mb-4 text-blue-400">24h</div>
+          <h3 class="text-lg font-bold text-white">Dostęp</h3>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Bento Grid Dashboard -->
-  <section class="py-20 bg-background">
+  <!-- SEKCJA OFERTA (Naprawiona) -->
+  <section id="oferta" class="py-24 bg-[#0a0a0a]">
     <div class="container mx-auto px-6">
       <div class="text-center mb-16">
-        <h2 class="text-5xl font-bold font-display text-accent mb-6">Panel kontrolny</h2>
-        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
-          Wszystko co musisz wiedzieć na pierwszy rzut oka
+        <h2 class="text-5xl font-bold text-white mb-6">Dostępne Magazyny</h2>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto">
+          Wybierz rozmiar idealny dla Ciebie
         </p>
       </div>
 
-      <!-- Bento Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6 auto-rows-fr">
-        <!-- Large Gate Tile -->
-        {userUnit && (
-          <GateTile 
-            client:load 
-            isSubscribed={hasActiveSubscription}
-            unitId={userUnit.id}
-            unitName={userUnit.data.name}
-          />
-        )}
-
-        <!-- Stats Tiles -->
-        <StatsTile 
-          title="Dostępne magazyny" 
-          value={availableCount} 
-          trend={`+${availableCount}`}
-          icon="📦"
-          size="medium"
-        />
-        
-        <StatsTile 
-          title="Zajętość" 
-          value={`${occupancyRate}%`} 
-          trend={occupancyRate > 80 ? '+High' : '-Low'}
-          icon="📊"
-          size="medium"
-        />
-        
-        <StatsTile 
-          title="Temperatura" 
-          value="12°C" 
-          icon="🌡️"
-          size="small"
-        />
-        
-        <WeatherTile client:load />
-        
-        <StatsTile 
-          title="Aktywne wynajmy" 
-          value={stats.activeRentals} 
-          trend="+12"
-          icon="🔑"
-          size="medium"
-        />
-        
-        <StatsTile 
-          title="Zadowolenie" 
-          value={stats.satisfaction} 
-          icon="⭐"
-          size="small"
-        />
-        
-        <StatsTile 
-          title="Dostępność" 
-          value={stats.uptime} 
-          icon="✅"
-          size="small"
-        />
-
-        {/* B2B & Operations Tiles */}
-        {isAuthenticated && (
-          <>
-            <TeamAccessTile 
-              client:load 
-              unitId={userUnit?.id}
-              unitName={userUnit?.data.name}
-            />
-            
-            <MoveOutTile 
-              client:load 
-              unitId={userUnit?.id}
-              unitName={userUnit?.data.name}
-              subscriptionId="mock-subscription-id"
-            />
-          </>
-        )}
-      </div>
-    </div>
-  </section>
-
-  <!-- Available Units -->
-  <section class="py-20 bg-bg-primary">
-    <div class="container mx-auto px-6">
-      <div class="text-center mb-16">
-        <h2 class="text-5xl font-bold font-display text-accent mb-6">Dostępne magazyny</h2>
-        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
-          Wybierz idealną przestrzeń dla swoich potrzeb
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {units.map((unit, index) => {
-          const isAvailable = availableUnits?.some(u => u.id === parseInt(unit.id.split('-')[1])) ?? false;
-          
-          return (
-            <div
-              key={unit.id}
-              class={`bg-glass-bg border border-glass-border rounded-3xl p-8 backdrop-blur-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-accent/20 ${
-                !isAvailable ? 'opacity-50' : ''
-              }`}
-            >
-              <div class="aspect-video bg-bg-secondary rounded-2xl mb-6 overflow-hidden">
-                {unit.data.image ? (
-                  <img 
-                    src={unit.data.image} 
-                    alt={unit.data.name}
-                    class="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div class="w-full h-full flex items-center justify-center">
-                    <div class="text-6xl text-gray-600">📦</div>
-                  </div>
-                )}
+      {units.length > 0 ? (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {units.map((unit) => (
+            <div class="group relative bg-[#151515] border border-white/10 rounded-3xl p-6 transition-all duration-300 hover:-translate-y-2 hover:border-white/20 hover:shadow-2xl">
+              
+              <!-- Zdjęcie -->
+              <div class="aspect-video bg-gray-800 rounded-2xl mb-6 overflow-hidden relative">
+                 <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" style={`background-image: url('${unit.image_url || "https://images.unsplash.com/photo-1590247813693-5541d1c609fd?w=500&h=300&fit=crop"}')`}></div>
               </div>
 
-              <div class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <h3 class="text-2xl font-bold text-accent font-display">{unit.data.name}</h3>
-                  <div class={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isAvailable 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-red-500/20 text-red-400'
-                  }`}>
-                    {isAvailable ? 'Dostępny' : 'Zajęty'}
-                  </div>
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <h3 class="text-2xl font-bold text-white">{unit.name}</h3>
+                  <p class="text-gray-400">{unit.size}</p>
                 </div>
-                
-                <div class="text-gray-300">{unit.data.size}</div>
-                
-                <div class="space-y-2">
-                  <div class="text-3xl font-bold text-accent font-display">
-                    {unit.data.priceGross / 100} PLN
-                    <span class="text-sm font-normal text-gray-400">/miesiąc</span>
-                  </div>
-                  <div class="text-xs text-gray-500">Brutto (VAT 23%)</div>
-                </div>
-
-                <div class="space-y-2 pt-4 border-t border-glass-border">
-                  <div class="text-sm text-gray-400 mb-2">Pojemność:</div>
-                  <div class="flex items-center space-x-4 text-sm">
-                    <span>📦 {unit.data.capacity.cartons} kartonów</span>
-                    {unit.data.capacity.bicycles && (
-                      <span>🚲 {unit.data.capacity.bicycles} rowery</span>
-                    )}
-                  </div>
-                </div>
-
-                {isAvailable && (
-                  <button
-                    id={`book-${unit.id}`}
-                    class="w-full bg-accent text-text-dark font-bold py-3 rounded-xl hover:bg-gray-300 transition-colors mt-6"
-                  >
-                    Zarezerwuj teraz
-                  </button>
-                )}
+                <span class="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-sm font-bold">
+                  Wolny
+                </span>
               </div>
+
+              <div class="space-y-3 border-t border-white/5 pt-4 mb-6">
+                <div class="flex justify-between text-sm text-gray-300">
+                  <span>Cena netto</span>
+                  <span>{((unit.price_gross / 1.23) / 100).toFixed(2)} zł</span>
+                </div>
+                <div class="flex justify-between text-xl font-bold text-white">
+                  <span>Cena brutto</span>
+                  <span>{(unit.price_gross / 100).toFixed(2)} zł</span>
+                </div>
+              </div>
+
+              <a 
+                href={`/checkout?unitId=${unit.id}`}
+                class="block w-full text-center bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Rezerwuj Teraz
+              </a>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : (
+        /* Empty State */
+        <div class="text-center py-20 border border-white/10 rounded-3xl bg-[#111]">
+          <p class="text-2xl text-white mb-2">Wszystkie boksy są zajęte 😔</p>
+          <p class="text-gray-400">Zapisz się na listę oczekujących.</p>
+        </div>
+      )}
     </div>
   </section>
 
-  <!-- Booking Wizard Modal -->
-  <div id="bookingWizardContainer"></div>
 </LayoutV2>
-
-<script>
-  // Otwieranie wizarda
-  document.getElementById('openWizard')?.addEventListener('click', () => {
-    const container = document.getElementById('bookingWizardContainer');
-    if (container) {
-      // Tutaj React renderuje BookingWizard
-      // W Astro używamy client:load na komponencie
-    }
-  });
-
-  // Booking dla każdego magazynu
-  document.querySelectorAll('[id^="book-"]').forEach(button => {
-    button.addEventListener('click', () => {
-      const unitId = button.id.replace('book-', '');
-      window.location.href = `/checkout?unit=${unitId}`;
-    });
-  });
-</script>
