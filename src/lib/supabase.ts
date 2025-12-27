@@ -1,19 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+// 1. Pobieramy klucze bezpiecznie (obsługa Vite i Node)
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Brak zmiennych środowiskowych Supabase');
+// 2. Walidacja (żebyś widział w logach, jeśli czegoś brakuje)
+if (!supabaseUrl || !supabaseKey) {
+  console.error('CRITICAL: Brakuje zmiennych środowiskowych Supabase!');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Service role client (tylko dla serwera)
-export const createServiceClient = () => {
-  const serviceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error('Brak SERVICE_ROLE_KEY');
-  }
-  return createClient(supabaseUrl, serviceRoleKey);
-};
+// 3. Eksport (Named Export - to jest kluczowe dla import { supabase })
+export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
