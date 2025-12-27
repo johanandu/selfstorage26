@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
 // Importujemy Supabase (ścieżka sprawdzona przy poprzednim błędzie)
-import { supabase } from '/src/lib/supabase';
+import { supabase } from './supabase';
 
 export const POST: APIRoute = async ({ request }) => {
   // 1. Konfiguracja zmiennych
