@@ -6,7 +6,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
 ---
 
 <Layout title="Zarejestruj się - Self-Storage">
-  <div class="min-h-screen bg-background flex items-center justify-center pt-24">
+  <div class="min-h-screen bg-background flex items-center justify-center pt-24 pb-12">
     <div class="w-full max-w-md mx-6">
       <div class="bg-primary rounded-3xl p-8 border border-secondary">
         <div class="text-center mb-8">
@@ -21,7 +21,8 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           </p>
         </div>
         
-        <form id="registerForm" class="space-y-4">
+        <!-- ZMIANA: Przekazujemy redirect przez atrybut data-redirect -->
+        <form id="registerForm" data-redirect={redirect} class="space-y-4">
           <div>
             <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
               Email
@@ -30,6 +31,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
               type="email"
               id="email"
               name="email"
+              autocomplete="email"
               required
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="twój@email.pl"
@@ -44,6 +46,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
               type="text"
               id="fullName"
               name="fullName"
+              autocomplete="name"
               required
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="Jan Kowalski"
@@ -58,6 +61,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
               type="tel"
               id="phone"
               name="phone"
+              autocomplete="tel"
               required
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="+48 123 456 789"
@@ -84,7 +88,8 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
             <textarea
               id="address"
               name="address"
-              rows="3"
+              rows="2"
+              autocomplete="street-address"
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
               placeholder="ul. Przykładowa 123, 00-001 Warszawa"
             ></textarea>
@@ -92,12 +97,13 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           
           <div>
             <label for="password" class="block text-sm font-medium text-gray-300 mb-2">
-              Hasło
+              Hasło (min. 6 znaków)
             </label>
             <input
               type="password"
               id="password"
               name="password"
+              autocomplete="new-password"
               required
               minlength="6"
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
@@ -107,12 +113,37 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           
           <button
             type="submit"
-            class="w-full bg-accent text-text-dark font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors"
+            id="submitBtn"
+            class="w-full bg-accent text-text-dark font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-4"
           >
             Zarejestruj się
           </button>
           
-          <div class="text-center">
+          {/* Google OAuth - Dodane */}
+          <div class="relative mt-6">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-600"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-bg-primary text-gray-400">lub</span>
+            </div>
+          </div>
+          
+          <button
+            type="button"
+            id="googleRegister"
+            class="w-full flex items-center justify-center space-x-3 bg-white text-gray-800 font-bold py-4 rounded-xl hover:bg-gray-100 transition-colors border border-gray-300 mt-6"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span>Zarejestruj z Google</span>
+          </button>
+          
+          <div class="text-center mt-6">
             <p class="text-gray-400 text-sm">
               Masz już konto? 
               <a href="/auth/login" class="text-accent hover:underline">
@@ -122,78 +153,103 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           </div>
         </form>
         
-        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
         </div>
       </div>
     </div>
   </div>
 
-  <script define:vars={{ redirect }}>
+  <script>
     import { supabase } from '../../lib/supabase';
     
     const form = document.getElementById('registerForm');
+    const submitBtn = document.getElementById('submitBtn');
     const errorMessage = document.getElementById('errorMessage');
     
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const formData = new FormData(form);
-      const email = formData.get('email');
-      const password = formData.get('password');
-      const fullName = formData.get('fullName');
-      const phone = formData.get('phone');
-      const nip = formData.get('nip');
-      const address = formData.get('address');
-      
-      try {
-        // Zarejestruj użytkownika
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+    // Pobieramy redirect z data-attribute
+    const redirect = form?.dataset.redirect || '/dashboard';
+    
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        if (authError) {
-          throw authError;
-        }
+        // Reset UI
+        errorMessage.classList.add('hidden');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Tworzenie konta...';
         
-        if (authData.user) {
-          // Zapisz dane profilu
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              full_name: fullName,
-              phone_number: phone,
-              nip: nip || null,
-              address: address || null,
-            })
-            .eq('id', authData.user.id);
-          
-          if (profileError) {
-            console.error('Błąd aktualizacji profilu:', profileError);
-          }
-          
-          // Zaloguj automatycznie
-          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        const formData = new FormData(form);
+        const email = formData.get('email')?.toString();
+        const password = formData.get('password')?.toString();
+        const fullName = formData.get('fullName')?.toString();
+        const phone = formData.get('phone')?.toString();
+        const nip = formData.get('nip')?.toString();
+        const address = formData.get('address')?.toString();
+        
+        try {
+          if (!email || !password || !fullName || !phone) throw new Error('Wypełnij wymagane pola');
+          if (password.length < 6) throw new Error('Hasło musi mieć min. 6 znaków');
+
+          // 1. Rejestracja w Supabase Auth + Przekazanie metadanych do Triggera
+          const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+              data: {
+                full_name: fullName,
+                phone_number: phone, // Klucz musi pasować do Triggera
+                nip: nip || null,
+                address: address || null
+              }
+            }
           });
           
-          if (loginError) {
-            throw loginError;
+          if (authError) throw authError;
+          
+          // 2. Obsługa sesji i przekierowanie
+          if (authData.session) {
+            // Ustawiamy bezpieczne ciasteczka
+            document.cookie = `sb-access-token=${authData.session.access_token}; path=/; max-age=${authData.session.expires_in}; Secure; SameSite=Lax`;
+            document.cookie = `sb-refresh-token=${authData.session.refresh_token}; path=/; max-age=${authData.session.expires_in}; Secure; SameSite=Lax`;
+            
+            // Sukces
+            window.location.href = redirect;
+          } else {
+            // Jeśli wymagane potwierdzenie maila
+            alert('Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.');
+            window.location.href = '/auth/login';
           }
           
-          if (loginData.session) {
-            // Zapisz token w ciasteczku
-            document.cookie = `sb-access-token=${loginData.session.access_token}; path=/; max-age=${loginData.session.expires_in}`;
-            
-            // Przekieruj
-            window.location.href = redirect;
-          }
+        } catch (error) {
+          console.error(error);
+          errorMessage.textContent = error.message || 'Błąd rejestracji';
+          errorMessage.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Zarejestruj się';
         }
-      } catch (error) {
-        errorMessage.textContent = error.message || 'Błąd rejestracji';
-        errorMessage.classList.remove('hidden');
-      }
-    });
+      });
+    }
+
+    // Google OAuth Logic
+    const googleButton = document.getElementById('googleRegister');
+    if (googleButton) {
+      googleButton.addEventListener('click', async () => {
+        try {
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`
+            }
+          });
+          
+          if (error) throw error;
+          
+        } catch (error) {
+          console.error(error);
+          errorMessage.textContent = 'Błąd Google: ' + error.message;
+          errorMessage.classList.remove('hidden');
+        }
+      });
+    }
   </script>
 </Layout>
