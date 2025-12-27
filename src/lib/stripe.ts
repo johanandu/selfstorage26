@@ -1,74 +1,80 @@
+import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
+import { supabase } from '../../../lib/supabase';
 
-const secretKey = import.meta.env.STRIPE_SECRET_KEY;
+export const POST: APIRoute = async ({ request }) => {
+  const stripeKey = import.meta.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+  const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET;
 
-if (!secretKey) {
-  throw new Error('Brak STRIPE_SECRET_KEY');
-}
-
-export const stripe = new Stripe(secretKey, {
-  apiVersion: '2024-06-20',
-});
-
-export const createCheckoutSession = async ({
-  unit,
-  customerEmail,
-  customerId,
-  successUrl,
-  cancelUrl,
-}: {
-  unit: any;
-  customerEmail?: string;
-  customerId?: string;
-  successUrl: string;
-  cancelUrl: string;
-}) => {
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card', 'p24'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'pln',
-          product_data: {
-            name: `Wynajem magazynu ${unit.name}`,
-            description: `Powierzchnia: ${unit.size}`,
-            images: unit.image_url ? [unit.image_url] : [],
-          },
-          unit_amount: unit.price_gross,
-          recurring: {
-            interval: 'month',
-          },
-        },
-        quantity: 1,
-      },
-    ],
-    mode: 'subscription',
-    customer_email: customerEmail,
-    customer: customerId,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    metadata: {
-      unit_id: unit.id.toString(),
-      unit_name: unit.name,
-    },
-    subscription_data: {
-      metadata: {
-        unit_id: unit.id.toString(),
-        unit_name: unit.name,
-      },
-    },
-    locale: 'pl',
-  });
-
-  return session;
-};
-
-export const constructWebhookEvent = (body: any, signature: string) => {
-  const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
-  
-  if (!webhookSecret) {
-    throw new Error('Brak STRIPE_WEBHOOK_SECRET');
+  if (!stripeKey || !webhookSecret) {
+    return new Response('Missing Stripe Config', { status: 500 });
   }
 
-  return stripe.webhooks.constructEvent(body, signature, webhookSecret);
+  const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+  
+  // 1. Pobierz surową treść żądania (wymagane do weryfikacji podpisu)
+  const signature = request.headers.get('stripe-signature');
+  if (!signature) return new Response('No Signature', { status: 400 });
+
+  const bodyText = await request.text();
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(bodyText, signature, webhookSecret);
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+  }
+
+  // 2. Obsługa Zdarzenia: Płatność udana
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    
+    // Pobieramy dane zapisane w create-checkout.ts
+    const { userId, unitId, duration_value, duration_unit } = session.metadata || {};
+
+    if (!userId || !unitId) {
+      console.error('Missing metadata in Stripe Session');
+      return new Response('Missing Metadata', { status: 400 });
+    }
+
+    // 3. Oblicz datę ważności (Koniec wynajmu)
+    const validUntil = new Date();
+    const duration = parseInt(duration_value || '1');
+
+    if (duration_unit === 'day') {
+      validUntil.setDate(validUntil.getDate() + duration);
+    } else {
+      // Domyślnie miesiące
+      validUntil.setMonth(validUntil.getMonth() + duration);
+    }
+
+    // 4. ZAPIS W BAZIE (SUPABASE)
+    
+    // A. Zmień status unitu na zajęty
+    await supabase
+      .from('units')
+      .update({ status: 'occupied' })
+      .eq('id', unitId);
+
+    // B. Utwórz subskrypcję (Dostęp)
+    const { error: subError } = await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: userId,
+        unit_id: parseInt(unitId),
+        status: 'active',
+        valid_until: validUntil.toISOString(),
+        stripe_session_id: session.id,
+        created_at: new Date().toISOString()
+      });
+
+    if (subError) console.error('Supabase Error:', subError);
+
+    // 5. FAKTUROWNIA (Opcjonalnie - wywołanie API)
+    // Tutaj możesz dodać logikę wysyłania do Fakturowni, jeśli masz klucz API
+    // await createInvoiceInFakturownia(session, userId); 
+  }
+
+  return new Response(JSON.stringify({ received: true }), { status: 200 });
 };
