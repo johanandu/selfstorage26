@@ -1,32 +1,38 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import GateButton from '../components/ui/GateButton.jsx';
 import { supabase } from '../lib/supabase';
 
-// Sprawdź autoryzację
-const token = Astro.cookies.get('sb-access-token');
+// 1. WERYFIKACJA SESJI (SSR)
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+const refreshToken = Astro.cookies.get('sb-refresh-token')?.value;
 
-if (!token) {
+if (!accessToken || !refreshToken) {
   return Astro.redirect('/auth/login?redirect=/dashboard');
 }
 
-// Pobierz użytkownika
-const { data: { user }, error: authError } = await supabase.auth.getUser(token.value);
+// Ustawiamy sesję dla klienta
+const { data: { session }, error } = await supabase.auth.setSession({
+  access_token: accessToken,
+  refresh_token: refreshToken,
+});
 
-if (authError || !user) {
+if (error || !session) {
+  // Jeśli token wygasł -> wyloguj
   Astro.cookies.delete('sb-access-token', { path: '/' });
+  Astro.cookies.delete('sb-refresh-token', { path: '/' });
   return Astro.redirect('/auth/login?redirect=/dashboard');
 }
 
-// Pobierz dane użytkownika z bazy
-const { data: profile, error: profileError } = await supabase
+// 2. POBIERANIE DANYCH
+// Profil
+const { data: profile } = await supabase
   .from('profiles')
   .select('*')
-  .eq('id', user.id)
+  .eq('id', session.user.id)
   .single();
 
-// Pobierz aktywne subskrypcje użytkownika
-const { data: subscriptions, error: subError } = await supabase
+// Subskrypcje (Magazyny)
+const { data: subscriptions } = await supabase
   .from('subscriptions')
   .select(`
     *,
@@ -34,186 +40,212 @@ const { data: subscriptions, error: subError } = await supabase
       id,
       name,
       size,
-      price_gross,
+      gate_code,
       image_url
     )
   `)
-  .eq('user_id', user.id)
-  .eq('status', 'active')
-  .gte('valid_until', new Date().toISOString());
+  .eq('user_id', session.user.id)
+  .eq('status', 'active');
 
-// Pobierz historię transakcji
-const { data: transactions, error: transError } = await supabase
-  .from('subscriptions')
-  .select(`
-    *,
-    units (
-      name,
-      size
-    )
-  `)
-  .eq('user_id', user.id)
-  .order('created_at', { ascending: false })
-  .limit(10);
-
-const formatPrice = (price: number) => {
-  return (price / 100).toFixed(2);
-};
-
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('pl-PL');
-};
+const userName = profile?.full_name || session.user.email;
+const hasUnits = subscriptions && subscriptions.length > 0;
 ---
 
-<Layout title="Panel Klienta - Self-Storage">
-  <div class="min-h-screen bg-background pt-24">
-    <div class="container mx-auto px-6">
-      <!-- Welcome Section -->
-      <div class="bg-primary rounded-3xl p-8 mb-12 border border-secondary">
-        <div class="flex items-center justify-between flex-wrap gap-6">
-          <div>
-            <h1 class="text-4xl font-bold text-accent font-canela mb-2">
-              Witaj, {profile?.full_name || user.email}!
-            </h1>
-            <p class="text-gray-300 text-lg">
-              {subscriptions && subscriptions.length > 0 
-                ? `Masz ${subscriptions.length} aktywnych magazynów` 
-                : 'Nie masz jeszcze wynajętych magazynów'}
-            </p>
+<Layout title="Panel Klienta">
+  <div class="min-h-screen bg-[#09090b] text-white pb-20">
+    
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 border-b border-white/10 bg-[#09090b]/80 backdrop-blur-md">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-black font-bold">
+              S
+            </div>
+            <span class="font-medium text-gray-200">Panel Klienta</span>
           </div>
           
-          <div class="text-right">
-            <div class="text-sm text-gray-400 mb-1">Twój NIP</div>
-            <div class="text-accent font-semibold">
-              {profile?.nip || 'Nie podano'}
-            </div>
+          <div class="flex items-center gap-4">
+            <span class="hidden text-sm text-gray-400 sm:block">{userName}</span>
+            <button id="logoutBtn" class="rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/10 transition-colors">
+              Wyloguj
+            </button>
           </div>
         </div>
       </div>
+    </nav>
 
-      <!-- Active Subscriptions -->
-      {subscriptions && subscriptions.length > 0 ? (
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {subscriptions.map((sub) => (
-            <div class="bg-primary rounded-2xl p-6 border border-secondary">
-              <div class="flex items-start justify-between mb-6">
-                <div>
-                  <h3 class="text-2xl font-bold text-accent font-canela mb-2">
-                    {sub.units.name}
-                  </h3>
-                  <p class="text-gray-300">{sub.units.size}</p>
-                </div>
-                
-                {sub.units.image_url && (
-                  <img 
-                    src={sub.units.image_url} 
-                    alt={sub.units.name}
-                    class="w-20 h-20 rounded-lg object-cover"
-                  />
-                )}
-              </div>
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      
+      <!-- WELCOME HEADER -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold tracking-tight text-white">Dzień dobry! 👋</h1>
+        <p class="mt-2 text-gray-400">Zarządzaj swoimi magazynami i dostępem.</p>
+      </div>
 
-              <div class="space-y-4">
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-300">Cena miesięczna:</span>
-                  <span class="text-2xl font-bold text-accent">
-                    {formatPrice(sub.units.price_gross)} PLN
-                  </span>
-                </div>
-                
-                <div class="flex justify-between items-center">
-                  <span class="text-gray-300">Ważny do:</span>
-                  <span class="font-semibold text-green-400">
-                    {formatDate(sub.valid_until)}
-                  </span>
-                </div>
+      <!-- BENTO GRID LAYOUT -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:grid-rows-2 lg:gap-8">
+        
+        <!-- 1. GŁÓWNY KAFEL: TWOJE MAGAZYNY (Zajmuje 2 kolumny) -->
+        <div class="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#121214] p-6 md:col-span-2 md:row-span-2">
+          <div class="absolute top-0 right-0 p-4 opacity-10">
+            <svg class="h-32 w-32" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v12a2 2 0 002 2h14a2 2 0 002-2V4a2 2 0 00-2-2zm0 14H4V4h16v12z"/></svg>
+          </div>
 
-                <div class="border-t border-secondary pt-4">
-                  <GateButton
-                    unitId={sub.unit_id}
-                    client:load
-                    isSubscribed={true}
-                    onOpenGate={async () => {
-                      const response = await fetch('/api/gate/open', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ unitId: sub.unit_id }),
-                      });
-                      
-                      const result = await response.json();
-                      
-                      if (response.ok) {
-                        alert('Brama otwarta pomyślnie!');
-                      } else {
-                        alert(`Błąd: ${result.error}`);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div class="bg-primary rounded-2xl p-12 text-center border border-secondary mb-12">
-          <div class="text-6xl mb-6">🏠</div>
-          <h3 class="text-2xl font-bold text-accent mb-4">Nie masz jeszcze magazynu</h3>
-          <p class="text-gray-300 mb-8 max-w-md mx-auto">
-            Przeglądaj dostępne jednostki i wybierz odpowiednią dla siebie.
-          </p>
-          <a 
-            href="/"
-            class="inline-block bg-accent text-text-dark font-bold py-3 px-8 rounded-full hover:bg-gray-300 transition-colors"
-          >
-            Zobacz ofertę
-          </a>
-        </div>
-      )}
-
-      <!-- Transaction History -->
-      {transactions && transactions.length > 0 && (
-        <div class="bg-primary rounded-2xl p-8 border border-secondary">
-          <h2 class="text-2xl font-bold text-accent font-canela mb-6">Historia transakcji</h2>
-          
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b border-secondary">
-                  <th class="text-left py-3 text-gray-300">Magazyn</th>
-                  <th class="text-left py-3 text-gray-300">Status</th>
-                  <th class="text-left py-3 text-gray-300">Data rozpoczęcia</th>
-                  <th class="text-left py-3 text-gray-300">Data zakończenia</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((trans) => (
-                  <tr class="border-b border-secondary/50">
-                    <td class="py-4">
-                      <div>
-                        <div class="font-semibold text-accent">{trans.units?.name}</div>
-                        <div class="text-sm text-gray-400">{trans.units?.size}</div>
+          <div class="relative z-10">
+            <h2 class="text-xl font-semibold text-white">Twoje Magazyny</h2>
+            
+            {hasUnits ? (
+              <div class="mt-6 space-y-4">
+                {subscriptions.map((sub) => (
+                  <div class="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10">
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                      <!-- Obrazek unitu lub placeholder -->
+                      <div class="h-14 w-14 flex-shrink-0 rounded-lg bg-gray-800 bg-cover bg-center" 
+                           style={`background-image: url('${sub.units.image_url || "https://images.unsplash.com/photo-1590247813693-5541d1c609fd?w=150&h=150&fit=crop"}')`}>
                       </div>
-                    </td>
-                    <td class="py-4">
-                      <span class={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                        trans.status === 'active' 
-                          ? 'bg-green-500/20 text-green-400' 
-                          : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {trans.status === 'active' ? 'Aktywny' : 'Nieaktywny'}
-                      </span>
-                    </td>
-                    <td class="py-4 text-gray-300">{formatDate(trans.created_at)}</td>
-                    <td class="py-4 text-gray-300">{formatDate(trans.valid_until)}</td>
-                  </tr>
+                      <div>
+                        <h3 class="font-bold text-white">{sub.units.name}</h3>
+                        <p class="text-sm text-gray-400">{sub.units.size} • Kod: <span class="font-mono text-yellow-500">{sub.units.gate_code || "****"}</span></p>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      class="gate-btn w-full sm:w-auto rounded-lg bg-white px-6 py-3 font-bold text-black hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                      data-unit-id={sub.unit_id}
+                    >
+                      <span>🔓</span> OTWÓRZ BRAMĘ
+                    </button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              /* EMPTY STATE */
+              <div class="mt-12 flex flex-col items-center justify-center text-center">
+                <div class="rounded-full bg-white/5 p-4 ring-1 ring-white/10">
+                  <span class="text-3xl">📦</span>
+                </div>
+                <h3 class="mt-4 text-lg font-medium text-white">Brak aktywnych magazynów</h3>
+                <p class="mt-2 max-w-sm text-sm text-gray-400">Wygląda na to, że nie wynajmujesz jeszcze żadnej powierzchni.</p>
+                <a 
+                  href="/#oferta" 
+                  class="mt-6 inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
+                >
+                  Wynajmij teraz &rarr;
+                </a>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+
+        <!-- 2. STATUS SYSTEMU -->
+        <div class="rounded-3xl border border-white/10 bg-[#121214] p-6">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-xs font-medium uppercase tracking-wider text-gray-400">System</p>
+              <h3 class="mt-1 text-2xl font-bold text-white">Online</h3>
+            </div>
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+          </div>
+          <div class="mt-8">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-400">Brama wjazdowa</span>
+              <span class="text-green-400">Aktywna</span>
+            </div>
+            <div class="mt-2 h-1 w-full rounded-full bg-white/10">
+              <div class="h-1 w-full rounded-full bg-green-500"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. PŁATNOŚCI / FAKTURY -->
+        <div class="rounded-3xl border border-white/10 bg-[#121214] p-6 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-gray-400">Finanse</p>
+            <h3 class="mt-1 text-xl font-bold text-white">Faktury</h3>
+          </div>
+          
+          {hasUnits ? (
+            <div class="mt-4">
+              <div class="flex items-center justify-between rounded bg-green-500/10 px-3 py-2 text-sm text-green-400 border border-green-500/20">
+                <span>Wszystko opłacone</span>
+                <span>✓</span>
+              </div>
+            </div>
+          ) : (
+             <div class="mt-4 text-sm text-gray-500 italic">Brak historii</div>
+          )}
+          
+          <button class="mt-4 w-full rounded-lg border border-white/10 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 transition-colors">
+            Historia transakcji
+          </button>
+        </div>
+
+      </div>
+    </main>
   </div>
+
+  <script>
+    import { supabase } from '../lib/supabase';
+
+    // 1. LOGIKA WYLOGOWANIA
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        const { error } = await supabase.auth.signOut();
+        // Czyścimy ciasteczka
+        document.cookie = 'sb-access-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'sb-refresh-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        window.location.href = '/auth/login';
+      });
+    }
+
+    // 2. LOGIKA OTWIERANIA BRAMY (Symulacja + API Call)
+    const gateBtns = document.querySelectorAll('.gate-btn');
+    gateBtns.forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        // Rzutowanie typu
+        const button = e.currentTarget as HTMLButtonElement;
+        const unitId = button.dataset.unitId;
+        const originalContent = button.innerHTML;
+
+        // UI Loading State
+        button.disabled = true;
+        button.innerHTML = `<svg class="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+        button.classList.add('opacity-75');
+
+        try {
+          // Tutaj strzał do API
+          const response = await fetch('/api/gate/open', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ unitId })
+          });
+
+          if (response.ok) {
+             button.innerHTML = `<span>🔓</span> OTWARTE!`;
+             button.classList.replace('bg-white', 'bg-green-500');
+             
+             // Reset po 5 sek
+             setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+                button.classList.remove('opacity-75');
+                button.classList.replace('bg-green-500', 'bg-white');
+             }, 5000);
+          } else {
+             throw new Error('Błąd połączenia');
+          }
+        } catch (err) {
+          alert('Nie udało się otworzyć bramy. Sprawdź połączenie.');
+          button.innerHTML = originalContent;
+          button.disabled = false;
+          button.classList.remove('opacity-75');
+        }
+      });
+    });
+  </script>
 </Layout>
