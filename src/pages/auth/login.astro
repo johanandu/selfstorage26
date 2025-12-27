@@ -21,7 +21,8 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           </p>
         </div>
         
-        <form id="loginForm" class="space-y-6">
+        <!-- ZMIANA: Przekazujemy redirect w data-redirect -->
+        <form id="loginForm" data-redirect={redirect} class="space-y-6">
           <div>
             <label for="email" class="block text-sm font-medium text-gray-300 mb-2">
               Email
@@ -30,6 +31,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
               type="email"
               id="email"
               name="email"
+              autocomplete="email"
               required
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="twój@email.pl"
@@ -44,6 +46,7 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
               type="password"
               id="password"
               name="password"
+              autocomplete="current-password"
               required
               class="w-full bg-secondary border border-secondary rounded-lg px-4 py-3 text-accent placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="••••••••"
@@ -52,7 +55,8 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           
           <button
             type="submit"
-            class="w-full bg-accent text-text-dark font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors"
+            id="submitBtn"
+            class="w-full bg-accent text-text-dark font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Zaloguj się
           </button>
@@ -91,68 +95,86 @@ const redirect = url.searchParams.get('redirect') || '/dashboard';
           </div>
         </form>
         
-        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+        <div id="errorMessage" class="hidden mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
         </div>
       </div>
     </div>
   </div>
 
-  <script define:vars={{ redirect }}>
+  <script>
+    // ZMIANA: Usunąłem define:vars, teraz Astro poprawnie przetworzy importy
     import { supabase } from '../../lib/supabase';
     
     const form = document.getElementById('loginForm');
+    const submitBtn = document.getElementById('submitBtn');
     const errorMessage = document.getElementById('errorMessage');
     
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const formData = new FormData(form);
-      const email = formData.get('email');
-      const password = formData.get('password');
-      
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+    // ZMIANA: Pobieramy redirect z atrybutu HTML
+    const redirect = form?.dataset.redirect || '/dashboard';
+    
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        if (error) {
-          throw error;
-        }
+        // UI Feedback
+        errorMessage.classList.add('hidden');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Logowanie...';
         
-        if (data.session) {
-          // Zapisz token w ciasteczku
-          document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${data.session.expires_in}`;
+        const formData = new FormData(form);
+        const email = formData.get('email')?.toString();
+        const password = formData.get('password')?.toString();
+        
+        try {
+          if (!email || !password) throw new Error('Podaj email i hasło');
+
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
           
-          // Przekieruj
-          window.location.href = redirect;
+          if (error) throw error;
+          
+          if (data.session) {
+            // Ustawiamy ciastko dla SSR (dla Astro)
+            document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${data.session.expires_in}; Secure; SameSite=Lax`;
+            document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${data.session.expires_in}; Secure; SameSite=Lax`;
+            
+            // Sukces!
+            window.location.href = redirect;
+          }
+        } catch (error) {
+          console.error(error);
+          errorMessage.textContent = error.message === 'Invalid login credentials' 
+            ? 'Błędny email lub hasło' 
+            : (error.message || 'Wystąpił błąd logowania');
+          errorMessage.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Zaloguj się';
         }
-      } catch (error) {
-        errorMessage.textContent = error.message || 'Błąd logowania';
-        errorMessage.classList.remove('hidden');
-      }
-    });
+      });
+    }
     
     // Google OAuth
     const googleButton = document.getElementById('googleLogin');
-    googleButton.addEventListener('click', async () => {
-      try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`
-          }
-        });
-        
-        if (error) {
-          throw error;
+    if (googleButton) {
+      googleButton.addEventListener('click', async () => {
+        try {
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`
+            }
+          });
+          
+          if (error) throw error;
+          
+        } catch (error) {
+          console.error(error);
+          errorMessage.textContent = 'Błąd logowania Google: ' + error.message;
+          errorMessage.classList.remove('hidden');
         }
-        
-        // Supabase automatycznie przekieruje
-      } catch (error) {
-        errorMessage.textContent = error.message || 'Błąd logowania Google';
-        errorMessage.classList.remove('hidden');
-      }
-    });
+      });
+    }
   </script>
 </Layout>
