@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   // 1. Sprawdź klucz Stripe
