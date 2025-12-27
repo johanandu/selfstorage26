@@ -1,207 +1,192 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import LayoutV2 from '../layouts/LayoutV2.astro';
 import { supabase } from '../lib/supabase';
-import { createCheckoutSession } from '../lib/stripe';
 
-// Sprawdź autoryzację
-const token = Astro.cookies.get('sb-access-token');
-
-if (!token) {
-  return Astro.redirect('/auth/login?redirect=/checkout');
-}
-
-// Pobierz użytkownika
-const { data: { user }, error: authError } = await supabase.auth.getUser(token.value);
-
-if (authError || !user) {
-  Astro.cookies.delete('sb-access-token', { path: '/' });
-  return Astro.redirect('/auth/login?redirect=/checkout');
-}
-
-// Pobierz dane użytkownika
-const { data: profile } = await supabase
-  .from('profiles')
-  .select('*')
-  .eq('id', user.id)
-  .single();
-
-// Pobierz ID jednostki z URL
-const url = new URL(Astro.request.url);
-const unitId = url.searchParams.get('unit');
+// 1. Sprawdź parametry URL
+const unitId = Astro.url.searchParams.get('unitId');
 
 if (!unitId) {
-  return Astro.redirect('/');
+  return Astro.redirect('/#oferta');
 }
 
-// Pobierz dane jednostki
-const { data: unit, error: unitError } = await supabase
+// 2. Sprawdź czy użytkownik jest zalogowany
+const accessToken = Astro.cookies.get('sb-access-token')?.value;
+
+if (!accessToken) {
+  // Przekieruj do logowania, a potem wróć tutaj
+  return Astro.redirect(`/auth/login?redirect=/checkout?unitId=${unitId}`);
+}
+
+// 3. Pobierz dane o magazynie
+const { data: unit, error } = await supabase
   .from('units')
   .select('*')
   .eq('id', unitId)
-  .eq('status', 'available')
   .single();
 
-if (unitError || !unit) {
-  return Astro.redirect('/');
+if (error || !unit) {
+  console.error('Unit error:', error);
+  return Astro.redirect('/?error=unit_not_found');
 }
 
-// Utwórz sesję checkout
-let checkoutUrl = '';
-try {
-  const session = await createCheckoutSession({
-    unit,
-    customerEmail: user.email,
-    customerId: profile?.stripe_customer_id,
-    successUrl: `${import.meta.env.PUBLIC_APP_URL}/dashboard`,
-    cancelUrl: `${import.meta.env.PUBLIC_APP_URL}/`,
-  });
-  
-  checkoutUrl = session.url || '';
-} catch (error) {
-  console.error('Błąd tworzenia sesji checkout:', error);
-}
+// 4. Pobierz dane użytkownika (do faktury)
+const { data: { user } } = await supabase.auth.getUser(accessToken);
+const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
-const formatPrice = (price: number) => {
-  return (price / 100).toFixed(2);
-};
+// Obliczenia
+const priceNetto = (unit.price_gross / 1.23) / 100;
+const priceBrutto = unit.price_gross / 100;
+const vat = priceBrutto - priceNetto;
 ---
 
-<Layout title="Finalizacja zamówienia - Self-Storage">
-  <div class="min-h-screen bg-background pt-24">
-    <div class="container mx-auto px-6">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl font-bold text-accent font-canela mb-8 text-center">
-          Finalizacja zamówienia
-        </h1>
+<LayoutV2 title="Podsumowanie Zamówienia">
+  <div class="min-h-screen bg-[#0a0a0a] pt-24 pb-12">
+    <div class="container mx-auto px-6 max-w-4xl">
+      
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-white mb-4">Podsumowanie Zamówienia</h1>
+        <p class="text-gray-400">Sprawdź szczegóły przed dokonaniem płatności</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <!-- Order Summary -->
-          <div class="bg-primary rounded-2xl p-8 border border-secondary">
-            <h2 class="text-2xl font-bold text-accent mb-6">Podsumowanie</h2>
+        <!-- LEWA KOLUMNA: SZCZEGÓŁY -->
+        <div class="md:col-span-2 space-y-6">
+          <!-- Karta Produktu -->
+          <div class="bg-[#151515] border border-white/10 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold text-white mb-6">Wybrany Magazyn</h2>
             
-            <div class="space-y-6">
-              <div class="flex items-center space-x-4">
-                {unit.image_url ? (
-                  <img 
-                    src={unit.image_url} 
-                    alt={unit.name}
-                    class="w-20 h-20 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div class="w-20 h-20 bg-secondary rounded-lg flex items-center justify-center">
-                    <span class="text-3xl">📦</span>
+            <div class="flex items-start gap-6">
+              <div class="w-32 h-24 bg-gray-800 rounded-xl bg-cover bg-center hidden sm:block" 
+                   style={`background-image: url('${unit.image_url || "https://images.unsplash.com/photo-1590247813693-5541d1c609fd?w=200&h=200&fit=crop"}')`}>
+              </div>
+              
+              <div class="flex-1">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h3 class="text-xl font-bold text-white">{unit.name}</h3>
+                    <p class="text-gray-400 mt-1">{unit.size}</p>
                   </div>
-                )}
-                <div>
-                  <h3 class="text-xl font-bold text-accent">{unit.name}</h3>
-                  <p class="text-gray-300">{unit.size}</p>
+                  <div class="text-right">
+                    <div class="text-xl font-bold text-white">{priceBrutto.toFixed(2)} PLN</div>
+                    <div class="text-sm text-gray-500">brutto / mc</div>
+                  </div>
                 </div>
-              </div>
-              
-              <div class="border-t border-secondary pt-4">
-                <div class="flex justify-between items-center mb-2">
-                  <span class="text-gray-300">Cena miesięczna brutto:</span>
-                  <span class="font-semibold">{formatPrice(unit.price_gross)} PLN</span>
+
+                <div class="mt-6 pt-6 border-t border-white/5 space-y-2 text-sm text-gray-300">
+                  <div class="flex justify-between">
+                    <span>Okres rozliczeniowy:</span>
+                    <span class="text-white">1 miesiąc (odnawialny)</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Dostęp:</span>
+                    <span class="text-white">Natychmiastowy (24/7)</span>
+                  </div>
                 </div>
-                <div class="flex justify-between items-center mb-2">
-                  <span class="text-gray-300">VAT (23%):</span>
-                  <span class="font-semibold">
-                    {formatPrice(unit.price_gross - (unit.price_gross / 1.23))} PLN
-                  </span>
-                </div>
-                <div class="flex justify-between items-center text-xl font-bold border-t border-secondary pt-2 mt-4">
-                  <span class="text-accent">Razem:</span>
-                  <span class="text-accent">{formatPrice(unit.price_gross)} PLN / miesiąc</span>
-                </div>
-              </div>
-              
-              <div class="bg-secondary/50 rounded-lg p-4">
-                <h4 class="font-semibold text-accent mb-2">Co otrzymujesz?</h4>
-                <ul class="text-sm text-gray-300 space-y-1">
-                  <li>• Dostęp 24/7 do magazynu</li>
-                  <li>• Monitoring i ochrona</li>
-                  <li>• Automatyczne faktury VAT</li>
-                  <li>• Możliwość rezygnacji w każdym momencie</li>
-                </ul>
               </div>
             </div>
           </div>
-          
-          <!-- Payment & User Info -->
-          <div class="bg-primary rounded-2xl p-8 border border-secondary">
-            <h2 class="text-2xl font-bold text-accent mb-6">Dane i płatność</h2>
+
+          <!-- Dane do Faktury -->
+          <div class="bg-[#151515] border border-white/10 rounded-3xl p-8">
+            <h2 class="text-xl font-bold text-white mb-4">Dane do faktury</h2>
+            <div class="text-gray-300 space-y-1">
+              <p><span class="text-gray-500">Odbiorca:</span> {profile?.full_name || user?.email}</p>
+              <p><span class="text-gray-500">NIP:</span> {profile?.nip || 'Brak (Paragon)'}</p>
+              <p><span class="text-gray-500">Email:</span> {user?.email}</p>
+            </div>
+            <p class="text-xs text-gray-500 mt-4">* Aby zmienić dane, edytuj profil w panelu klienta.</p>
+          </div>
+        </div>
+
+        <!-- PRAWA KOLUMNA: PŁATNOŚĆ -->
+        <div class="md:col-span-1">
+          <div class="bg-white text-black rounded-3xl p-8 sticky top-24">
+            <h2 class="text-2xl font-bold mb-6">Do zapłaty</h2>
             
-            <div class="space-y-6">
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                <div class="bg-secondary rounded-lg px-4 py-3 text-accent font-medium">
-                  {user.email}
-                </div>
+            <div class="space-y-3 mb-8 pb-8 border-b border-gray-200">
+              <div class="flex justify-between text-gray-600">
+                <span>Cena netto</span>
+                <span>{priceNetto.toFixed(2)} zł</span>
               </div>
-              
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Imię i nazwisko</label>
-                <div class="bg-secondary rounded-lg px-4 py-3 text-accent font-medium">
-                  {profile?.full_name || 'Nie uzupełniono'}
-                </div>
+              <div class="flex justify-between text-gray-600">
+                <span>VAT (23%)</span>
+                <span>{vat.toFixed(2)} zł</span>
               </div>
-              
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">NIP (opcjonalnie)</label>
-                <div class="bg-secondary rounded-lg px-4 py-3 text-accent font-medium">
-                  {profile?.nip || 'Nie podano'}
-                </div>
+              <div class="flex justify-between text-2xl font-bold pt-2">
+                <span>Razem</span>
+                <span>{priceBrutto.toFixed(2)} zł</span>
               </div>
-              
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">Adres rozliczeniowy</label>
-                <div class="bg-secondary rounded-lg px-4 py-3 text-accent font-medium">
-                  {profile?.address || 'Nie podano'}
-                </div>
-              </div>
-              
-              <div class="bg-secondary/50 rounded-lg p-4">
-                <h4 class="font-semibold text-accent mb-2">Metody płatności</h4>
-                <div class="flex items-center space-x-4 text-sm text-gray-300">
-                  <span>💳 Karta</span>
-                  <span>📱 BLIK</span>
-                  <span>🏦 Przelewy24</span>
-                </div>
-                <p class="text-xs text-gray-400 mt-2">
-                  Płatność jest przetwarzana bezpiecznie przez Stripe
-                </p>
-              </div>
-              
-              {checkoutUrl ? (
-                <a
-                  href={checkoutUrl}
-                  class="block w-full bg-accent text-text-dark text-center font-bold py-4 rounded-xl hover:bg-gray-300 transition-colors"
-                >
-                  Przejdź do płatności
-                </a>
-              ) : (
-                <div class="text-center py-4 text-red-400">
-                  Błąd podczas przygotowywania płatności. Spróbuj ponownie później.
-                </div>
-              )}
-              
-              <p class="text-xs text-gray-400 text-center">
-                Klikając "Przejdź do płatności" zgadzasz się na warunki świadczenia usług
-              </p>
             </div>
+
+            <button 
+              id="payBtn"
+              data-unit-id={unit.id}
+              class="w-full bg-black text-white font-bold py-4 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2 group"
+            >
+              <span>Zapłać bezpiecznie</span>
+              <svg class="w-5 h-5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </button>
+
+            <div class="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500">
+              <span>🔒 Płatności obsługuje Stripe (BLIK / Karta)</span>
+            </div>
+            
+            <div id="paymentError" class="hidden mt-4 p-3 bg-red-100 text-red-600 text-sm rounded-lg text-center"></div>
           </div>
         </div>
-        
-        <!-- Edit Profile Link -->
-        <div class="text-center mt-8">
-          <a 
-            href="/dashboard"
-            class="text-gray-400 hover:text-accent transition-colors"
-          >
-            ← Powrót do panelu
-          </a>
-        </div>
+
       </div>
     </div>
   </div>
-</Layout>
+
+  <script>
+    const payBtn = document.getElementById('payBtn');
+    const errorBox = document.getElementById('paymentError');
+
+    if (payBtn) {
+      payBtn.addEventListener('click', async () => {
+        // UI Loading
+        const originalText = payBtn.innerHTML;
+        payBtn.innerHTML = 'Przetwarzanie...';
+        payBtn.disabled = true;
+        errorBox.classList.add('hidden');
+
+        const unitId = payBtn.dataset.unitId;
+
+        try {
+          // 1. Wysyłamy żądanie utworzenia sesji płatności
+          const response = await fetch('/api/create-checkout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ unitId }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Błąd inicjalizacji płatności');
+          }
+
+          // 2. Przekierowanie do Stripe
+          if (result.url) {
+            window.location.href = result.url;
+          } else {
+            throw new Error('Nie otrzymano linku do płatności');
+          }
+
+        } catch (err) {
+          console.error(err);
+          errorBox.textContent = err.message;
+          errorBox.classList.remove('hidden');
+          payBtn.innerHTML = originalText;
+          payBtn.disabled = false;
+        }
+      });
+    }
+  </script>
+</LayoutV2>
