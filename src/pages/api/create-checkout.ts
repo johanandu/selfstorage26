@@ -9,17 +9,21 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
   try {
-    const { unitId, duration, invoiceData } = await request.json();
-    const months = duration || 1;
+    // 1. Odbierz nowe parametry: durationValue i durationUnit
+    const { unitId, durationValue, durationUnit, invoiceData } = await request.json();
+    
+    // Walidacja
+    const value = parseInt(durationValue) || 1;
+    const unitType = durationUnit === 'day' ? 'day' : 'month';
 
-    // 1. Walidacja usera
+    // 2. Auth
     const accessToken = cookies.get('sb-access-token')?.value;
     if (!accessToken) return new Response(JSON.stringify({ error: 'Zaloguj się' }), { status: 401 });
 
     const { data: { user } } = await supabase.auth.getUser(accessToken);
     if (!user) return new Response(JSON.stringify({ error: 'Błąd sesji' }), { status: 401 });
 
-    // 2. Aktualizacja danych do faktury w profilu (żeby były gotowe dla webhooka Fakturowni)
+    // 3. Update Profilu
     await supabase.from('profiles').update({
       full_name: invoiceData.fullName,
       nip: invoiceData.nip,
@@ -27,23 +31,29 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       phone_number: invoiceData.phone
     }).eq('id', user.id);
 
-    // 3. Pobranie magazynu
+    // 4. Pobierz Unit
     const { data: unit } = await supabase.from('units').select('*').eq('id', unitId).single();
     if (!unit) return new Response(JSON.stringify({ error: 'Magazyn nie istnieje' }), { status: 404 });
 
-    // 4. Kalkulacja Ceny i Rabatu (Backend - bezpiecznie)
-    let finalAmount = unit.price_gross * months;
-    let description = `Wynajem na ${months} mies.`;
+    // 5. KALKULACJA CENY (SERWEROWA)
+    let finalAmount = 0;
+    let description = '';
 
-    if (months === 6) {
-      finalAmount = Math.round(finalAmount * 0.95);
-      description += ' (Rabat -5%)';
-    } else if (months === 12) {
-      finalAmount = Math.round(finalAmount * 0.90);
-      description += ' (Rabat -10%)';
+    if (unitType === 'day') {
+      // Logika: Cena dzienna = CenaMiesięczna / 20 (narzut)
+      const pricePerDay = Math.ceil(unit.price_gross / 20);
+      finalAmount = pricePerDay * value;
+      description = `Wynajem na ${value} dni`;
+    } else {
+      // Logika miesięczna z rabatami
+      let baseTotal = unit.price_gross * value;
+      if (value === 6) baseTotal *= 0.95;
+      if (value === 12) baseTotal *= 0.90;
+      finalAmount = Math.round(baseTotal);
+      description = `Wynajem na ${value} mies.`;
     }
 
-    // 5. Stripe Session (Tryb PAYMENT - działa z BLIK)
+    // 6. Stripe Session
     const origin = new URL(request.url).origin;
     
     const session = await stripe.checkout.sessions.create({
@@ -56,18 +66,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             description: description,
             images: unit.image_url ? [unit.image_url] : [],
           },
-          unit_amount: finalAmount, // Cena całkowita za cały okres
+          unit_amount: finalAmount,
         },
         quantity: 1,
       }],
-      mode: 'payment', // KLUCZOWE: Payment = BLIK działa. Subscription = BLIK nie działa.
+      mode: 'payment',
       success_url: `${origin}/dashboard?payment=success`,
       cancel_url: `${origin}/checkout?unitId=${unitId}`,
       customer_email: user.email,
       metadata: {
         userId: user.id,
         unitId: unit.id.toString(),
-        duration_months: months.toString(), // Webhook musi wiedzieć, na ile przedłużyć
+        // Przekazujemy do webhooka info, czy dodać DNI czy MIESIĄCE
+        duration_value: value.toString(),
+        duration_unit: unitType, 
         type: 'rental_prepaid'
       },
     });
