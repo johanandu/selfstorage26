@@ -1,0 +1,15 @@
+---
+import LayoutV2 from '../../layouts/LayoutV2.astro';
+
+// Callback dla Google OAuth - przekierowanie na dashboard
+return Astro.redirect('/dashboard');
+---
+
+<LayoutV2 title="Logowanie...">
+  <div class="min-h-screen flex items-center justify-center">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
+      <p class="text-gray-300">Przekierowywanie do panelu...</p>
+    </div>
+  </div>
+</LayoutV2>

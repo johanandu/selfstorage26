@@ -1,0 +1,127 @@
+---
+export interface Props {
+  faqs?: Array<{
+    question: string;
+    answer: string;
+    category: string;
+  }>;
+}
+
+const { faqs = [
+  {
+    question: "Jak mogę wynająć magazyn?",
+    answer: "Wybierz odpowiedni rozmiar na naszej stronie, przejdź przez konfigurator i dokonaj płatności. Brama otworzy się automatycznie.",
+    category: "general"
+  },
+  {
+    question: "Czy mogę anulować wynajem w każdej chwili?",
+    answer: "Tak, możesz anulować wynajem w każdej chwili. Zwracamy niewykorzystaną część opłaty.",
+    category: "billing"
+  },
+  {
+    question: "Jak działa otwieranie bramy?",
+    answer: "Po opłaceniu wynajmu otrzymasz dostęp do panelu, gdzie znajdziesz przycisk 'Otwórz bramę'.",
+    category: "technical"
+  },
+  {
+    question: "Czy magazyny są monitorowane?",
+    answer: "Tak, wszystkie magazyny są monitorowane 24/7 oraz zabezpieczone systemem alarmowym.",
+    category: "security"
+  }
+] } = Astro.props;
+
+// Grupuj FAQ po kategoriach
+const groupedFaqs = faqs.reduce((acc, faq) => {
+  if (!acc[faq.category]) {
+    acc[faq.category] = [];
+  }
+  acc[faq.category].push(faq);
+  return acc;
+}, {} as Record<string, typeof faqs>);
+
+const categoryNames = {
+  general: 'Ogólne',
+  billing: 'Płatności',
+  technical: 'Techniczne',
+  security: 'Bezpieczeństwo',
+  sharing: 'Udostępnianie'
+};
+---
+
+<div class="w-full max-w-4xl mx-auto">
+  <div class="space-y-8">
+    {Object.entries(groupedFaqs).map(([category, items]) => (
+      <div key={category}>
+        <h3 class="text-2xl font-bold text-accent font-display mb-6">
+          {categoryNames[category] || category}
+        </h3>
+        
+        <div class="space-y-4">
+          {items.map((faq, index) => (
+            <details
+              key={index}
+              class="bg-glass-bg border border-glass-border rounded-2xl backdrop-blur-xl group"
+            >
+              <summary class="flex items-center justify-between p-6 cursor-pointer hover:bg-glass-bg/50 transition-colors">
+                <h4 class="text-lg font-medium text-accent group-open:text-accent">
+                  {faq.question}
+                </h4>
+                <svg
+                  class="w-5 h-5 text-gray-400 transition-transform duration-300 group-open:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              
+              <div class="px-6 pb-6">
+                <div class="border-t border-glass-border pt-4">
+                  <p class="text-gray-300 leading-relaxed">
+                    {faq.answer}
+                  </p>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {/* Schema.org structured data */}
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  })} />
+</div>
+
+<style>
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+  
+  details[open] summary ~ * {
+    animation: slideDown 0.3s ease-in-out;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

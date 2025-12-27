@@ -1,0 +1,209 @@
+---
+import LayoutV2 from '../layouts/LayoutV2.astro';
+import MapComponent from '../components/MapComponent.jsx';
+import FAQ from '../components/FAQ.astro';
+import Gallery from '../components/Gallery.astro';
+import FAB from '../components/FAB.jsx';
+import { getCollection } from 'astro:content';
+
+// Pobierz jednostki
+const units = await getCollection('units');
+
+// Dane FAQ
+const faqs = [
+  {
+    question: "Jak mogę wynająć magazyn?",
+    answer: "Wybierz odpowiedni rozmiar na naszej stronie, przejdź przez konfigurator i dokonaj płatności. Brama otworzy się automatycznie.",
+    category: "general"
+  },
+  {
+    question: "Czy mogę anulować wynajem w każdej chwili?",
+    answer: "Tak, możesz anulować wynajem w każdej chwili. Zwracamy niewykorzystaną część opłaty.",
+    category: "billing"
+  },
+  {
+    question: "Jak działa otwieranie bramy?",
+    answer: "Po opłaceniu wynajmu otrzymasz dostęp do panelu, gdzie znajdziesz przycisk 'Otwórz bramę'.",
+    category: "technical"
+  },
+  {
+    question: "Czy magazyny są monitorowane?",
+    answer: "Tak, wszystkie magazyny są monitorowane 24/7 oraz zabezpieczone systemem alarmowym.",
+    category: "security"
+  },
+  {
+    question: "Jak mogę udostępnić dostęp komuś innemu?",
+    answer: "W panelu klienta znajdziesz opcję 'Udostępnij dostęp'. Możesz wygenerować kod dostępu.",
+    category: "sharing"
+  }
+];
+---
+
+<LayoutV2 title="Self-Storage V3.0 - Premium Storage Solutions" description="Najnowocześniejsze magazyny samoobsługowe w Polsce. BLIK, automatyczne faktury VAT, dostęp 24/7.">
+  <!-- Hero Section with Video -->
+  <section class="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-background via-bg-primary to-bg-secondary">
+    <!-- Background Video -->
+    <div class="absolute inset-0 opacity-30">
+      <video 
+        autoplay 
+        muted 
+        loop 
+        class="w-full h-full object-cover"
+        poster="/images/hero-poster.jpg"
+      >
+        <source src="/videos/hero-background.mp4" type="video/mp4" />
+      </video>
+      <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/30"></div>
+    </div>
+
+    <div class="container mx-auto px-6 text-center relative z-10">
+      <div class="space-y-8">
+        <h1 class="text-6xl md:text-8xl font-bold font-display text-accent mb-6">
+          Premium<br/>Self-Storage
+        </h1>
+        <p class="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+          Najnowocześniejsze magazyny samoobsługowe w Polsce. BLIK, automatyczne faktury VAT, dostęp 24/7.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="/dashboard"
+            class="bg-accent text-text-dark font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-300 transition-all duration-300 hover:scale-105"
+          >
+            Zacznij teraz
+          </a>
+          <a
+            href="#map"
+            class="border border-glass-border bg-glass-bg/50 backdrop-blur-sm text-accent font-bold py-4 px-8 rounded-full text-lg hover:bg-glass-bg transition-all duration-300 hover:scale-105"
+          >
+            Zobacz na mapie
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Map Section -->
+  <section id="map" class="py-20 bg-bg-primary">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-5xl font-bold font-display text-accent mb-6">Znajdź magazyn na mapie</h2>
+        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          Zobacz wszystkie nasze lokalizacje i wybierz najbliższy magazyn
+        </p>
+      </div>
+
+      <MapComponent client:load units={units} />
+      
+      <div class="mt-12 text-center">
+        <div class="inline-flex items-center space-x-6 bg-glass-bg border border-glass-border rounded-2xl px-8 py-4 backdrop-blur-xl">
+          <div class="flex items-center space-x-2">
+            <div class="w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
+            <span class="text-gray-300">Dostępny</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <div class="w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
+            <span class="text-gray-300">Zajęty</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="py-20 bg-background">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-5xl font-bold font-display text-accent mb-6">Dlaczego my?</h2>
+        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          Najwyższa jakość, nowoczesna technologia, pełna automatyzacja
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="text-center space-y-6">
+          <div class="w-20 h-20 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto">
+            <span class="text-3xl">💳</span>
+          </div>
+          <h3 class="text-2xl font-bold text-accent">Płatności BLIK</h3>
+          <p className="text-gray-300">
+            Szybkie płatności mobilne BLIK oraz tradycyjne przelewy przez Przelewy24.
+          </p>
+        </div>
+
+        <div class="text-center space-y-6">
+          <div class="w-20 h-20 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto">
+            <span class="text-3xl">🤝</span>
+          </div>
+          <h3 class="text-2xl font-bold text-accent">B2B Team Access</h3>
+          <p className="text-gray-300">
+            Udostępnij magazyn swojemu zespołowi. Kontroluj dostęp i uprawnienia.
+          </p>
+        </div>
+
+        <div class="text-center space-y-6">
+          <div class="w-20 h-20 bg-accent/20 rounded-2xl flex items-center justify-center mx-auto">
+            <span class="text-3xl">📧</span>
+          </div>
+          <h3 class="text-2xl font-bold text-accent">Faktury VAT</h3>
+          <p className="text-gray-300">
+            Automatyczne wystawianie faktur VAT 23% i wysyłka na email w formacie PDF.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery Section -->
+  <section class="py-20 bg-bg-primary">
+    <div class="container mx-auto px-6">
+      <Gallery title="Zobacz nasze magazyny" />
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="py-20 bg-background">
+    <div class="container mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-5xl font-bold font-display text-accent mb-6">Najczęściej zadawane pytania</h2>
+        <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+          Znajdź odpowiedzi na najważniejsze pytania
+        </p>
+      </div>
+
+      <FAQ faqs={faqs} />
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-20 bg-bg-primary">
+    <div class="container mx-auto px-6 text-center">
+      <div class="bg-glass-bg border border-glass-border rounded-3xl p-12 backdrop-blur-xl">
+        <h2 class="text-4xl font-bold text-accent font-display mb-6">
+          Gotowy do rozpoczęcia?
+        </h2>
+        <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+          Dołącz do tysięcy zadowolonych klientów i ciesz się bezpiecznym przechowywaniem.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a
+            href="/dashboard"
+            class="bg-accent text-text-dark font-bold py-4 px-8 rounded-full text-lg hover:bg-gray-300 transition-colors"
+          >
+            Zarejestruj się
+          </a>
+          <a
+            href="/auth/login"
+            class="border border-accent text-accent font-bold py-4 px-8 rounded-full text-lg hover:bg-accent/10 transition-colors"
+          >
+            Zaloguj się
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* Floating Action Button for mobile */}
+  <FAB client:load />
+</LayoutV2>

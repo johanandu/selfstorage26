@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://your-domain.com/sitemap-index.xml
+
+# Crawl-delay dla botów (opcjonalnie)
+Crawl-delay: 1
+
+# Zablokowane ścieżki
+Disallow: /api/
+Disallow: /auth/callback
+Disallow: /private/

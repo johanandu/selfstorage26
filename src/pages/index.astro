@@ -159,6 +159,24 @@ const userUnit = hasActiveSubscription ? units[0] : null;
           icon="✅"
           size="small"
         />
+
+        {/* B2B & Operations Tiles */}
+        {isAuthenticated && (
+          <>
+            <TeamAccessTile 
+              client:load 
+              unitId={userUnit?.id}
+              unitName={userUnit?.data.name}
+            />
+            
+            <MoveOutTile 
+              client:load 
+              unitId={userUnit?.id}
+              unitName={userUnit?.data.name}
+              subscriptionId="mock-subscription-id"
+            />
+          </>
+        )}
       </div>
     </div>
   </section>
