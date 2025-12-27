@@ -1,24 +1,28 @@
+// astro.config.mjs
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import vercel from '@astrojs/vercel';
 
 export default defineConfig({
-  integrations: [
-    react(),
-    tailwind({
-      applyBaseStyles: true,
-    }),
-  ],
   output: 'server',
+  
   adapter: vercel({
     webAnalytics: { enabled: true },
   }),
-  experimental: {
-    serverIslands: true,
-    contentLayer: true,
-  },
+
+  integrations: [
+    react(),
+    tailwind({
+      applyBaseStyles: true, // Ważne dla wyglądu
+    }),
+  ],
+
+  // SEKCJĘ 'experimental' USUNĄŁEM CAŁKOWICIE - JEST ZBĘDNA W ASTRO 5
+
   vite: {
-    define: { 'process.env': {} } // Fix dla Stripe/React
+    define: {
+      'process.env': {} // Fix dla Stripe/React
+    }
   }
 });
